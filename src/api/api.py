@@ -32,11 +32,11 @@ def resultado():
     all_deputies = []
     for item in Deputy.objects:
         all_deputies.append(item)
-
+ 
 
     # Filtra os resultados da pesquisa
     for deputy in Deputy.objects:
-        if str.lower(deputy.name) == name_filter or name_filter == "":
+        if str.lower(deputy.name).find(name_filter) != -1 or name_filter == "":
             if str.lower(deputy.federative_unity) ==  uf_filter or uf_filter == "":
                 if str.lower(deputy.party) == party_filter or party_filter == "":
                     continue
