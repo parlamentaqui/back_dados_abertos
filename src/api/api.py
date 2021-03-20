@@ -32,3 +32,34 @@ def news():
     }
 
     return json_full
+
+@api.route('/<id>')
+def profile(id):
+    profile_json = {}
+    
+    for profile in Deputy.objects:
+      #Adicionar informacoes que estao comentadas
+        if int(id) == int(profile.id):
+            
+            profile_json["photo_url"] = profile.name
+            #Informacoes Pessoais
+            profile_json["full_name"] = profile.full_name
+            profile_json["party"] = profile.party
+            profile_json["federative_unity"] = profile.federative_unity
+            # profile_json["age"] = profile.age
+            profile_json["birth_date"] = profile.birth_date
+            #Informacoes do Gabinete
+            # profile_json["room_number"] = profile.room_number
+            # profile_json["floor"] = profile.floor
+            # profile_json["building"] = profile.building
+            # profile_json["telephone"] = profile.telephone
+            # profile_json["email"] = profile.email
+            #Redes Sociais
+            profile_json["facebook_username"] = profile.facebook_username
+            profile_json["twitter_username"] = profile.twitter_username
+            profile_json["instagram_username"] = profile.instagram_username
+            
+            return profile_json
+        
+    return {} 
+        
