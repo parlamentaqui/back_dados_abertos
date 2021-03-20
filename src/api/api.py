@@ -5,17 +5,22 @@ from operator import attrgetter
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
-#Retornar um json com todos os jsons de deputados
+#Retornar o json dos deputados pra aparecer na home
 @api.route('/deputies')
-def index():
-    full_json = {}
+def deputados():
+    s_list = sorted(Deputy.objects, reverse=True, key=attrgetter('last_activity_date'))
+    all_deputies = {}
     cont = 0
-    for deputy in Deputy.objects:
-        temp_json = deputy.to_json(deputy)
-        full_json[cont] = temp_json
+    for deputy in s_list:
+        depu_json= {}
+        depu_json["name"] = deputy.name
+        depu_json["photo_url"] = deputy.photo_url
+        depu_json["party"] = deputy.party
+        depu_json["federative_unity"] = deputy.federative_unity
+        all_deputies[cont] = depu_json
         cont += 1
 
-    return full_json
+    return all_deputies
 
 #Pegar as duas noticias mais recentes do nosso banco de dados
 @api.route('/news')
