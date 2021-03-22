@@ -1,2 +1,2 @@
 start-dev:
-	docker-compose up
+		docker-compose up

@@ -1,4 +1,5 @@
 import json
+import requests
 from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
@@ -57,3 +58,9 @@ def resultado():
 
     # Retorna no formato JSON a lista de objetos full_json
     return jsonify(full_json)
+
+
+@api.route('/atualizar_deputados')
+def atualizar_deputados():
+    r = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/deputados')
+    return jsonify(r.json())
