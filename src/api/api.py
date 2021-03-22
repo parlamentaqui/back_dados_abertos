@@ -1,5 +1,5 @@
 import json
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
 
@@ -8,16 +8,14 @@ api = Blueprint('api', __name__, url_prefix='/api')
 #Retornar um json com todos os jsons de deputados ordenados por nome
 @api.route('/deputies')
 def index():
-    full_json = {}
+    full_json = []
     sorted_list = sorted(Deputy.objects, key=attrgetter('name'))
-    cont = 0
 
     for deputy in sorted_list:
         temp_json = deputy.to_json(deputy)
-        full_json[cont] = temp_json
-        cont += 1
+        full_json.append(temp_json)
 
-    return full_json
+    return jsonify(full_json)
 
 #Resultado das buscas de acordo com o filtro
 @api.route('/resultado', methods=['POST'])
@@ -51,11 +49,11 @@ def resultado():
     sorted_list = sorted(all_deputies, key=attrgetter('name'))
 
     # Cria um json com todos os deputados encontrados e já ordenados
-    full_json = {}
-    cont = 0
+    full_json = []
+
     for deputy in sorted_list:
         temp_json = deputy.to_json(deputy)
-        full_json[cont] = temp_json
-        cont += 1
+        full_json.append(temp_json)
 
-    return full_json
+    # Retorna no formato JSON a lista de objetos full_json
+    return jsonify(full_json)
