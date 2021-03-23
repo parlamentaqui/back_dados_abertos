@@ -8,7 +8,7 @@
 
 2- Copiar o conteudo de .env.dev (que já está no projeto) para esse novo .env criado
 
-3- Caso tenha adicionado ou removido algum módulo (componente) do `requirements.txt`, rode:
+3- Caso tenha adicionado, removido ou atualizado algum módulo (componente) do `requirements.txt`, rode:
 
         make rebuild
 
