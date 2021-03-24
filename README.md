@@ -14,3 +14,4 @@
 
 Esse comando sempre deve ser executado quando quiser iniciar o container do etl_camara.
 
+
