@@ -1,0 +1,23 @@
+name: Run deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy etl_tse to DigitalOcean
+        uses: fifsky/ssh-action@master
+        with:
+          command: |
+            cd 
+            rm -rf etl_tse
+            git clone https://github.com/parlamentaqui/etl_tse/
+            cp envs/.env_tse etl_tse/.env
+            cd etl_tse
+            make start-prod
+          host: ${{ secrets.DO_HOST }}
+          pass: ${{ secrets.DO_PASSWORD }}

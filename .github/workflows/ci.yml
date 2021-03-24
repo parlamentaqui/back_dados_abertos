@@ -1,0 +1,31 @@
+name: Run CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  container_name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build etl_tse
+        uses: fifsky/ssh-action@master
+        with:
+          command: |
+            cd 
+            cd CI
+            rm -rf etl_tse
+            git clone https://github.com/parlamentaqui/etl_tse/
+            cp envs/.env_tse etl_tse/.env
+            cd etl_tse
+            git checkout ${{ github.event.pull_request.head.ref }}
+            python3 -m venv env
+            source env/bin/activate
+            pip install -r requirements.txt
+            nohup python src/app.py &
+            sleep 15
+            curl --fail 0.0.0.0:6005
+            kill -9 $(lsof -t -i:6005)
+          host: ${{ secrets.DO_HOST }}
+          pass: ${{ secrets.DO_PASSWORD }}
