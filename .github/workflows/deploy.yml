@@ -17,7 +17,7 @@ jobs:
             rm -rf etl_camara
             git clone https://github.com/parlamentaqui/etl_camara/
             cp envs/.env_camara etl_camara/.env
-            cd etl_etl_camara
+            cd etl_camara
             make start-prod
           host: ${{ secrets.DO_HOST }}
           pass: ${{ secrets.DO_PASSWORD }}
