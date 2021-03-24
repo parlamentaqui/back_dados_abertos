@@ -57,3 +57,4 @@ def resultado():
 
     # Retorna no formato JSON a lista de objetos full_json
     return jsonify(full_json)
+
