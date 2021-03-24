@@ -17,23 +17,8 @@ def deputados():
         depu_json["party"] = deputy.party
         depu_json["federative_unity"] = deputy.federative_unity
         all_deputies.append(depu_json)
-    return all_deputies
+    return jsonify(all_deputies)
 
-#Pegar as duas noticias mais recentes do nosso banco de dados
-@api.route('/news')
-def news():
-    all_news = News.objects
-    
-    #Ordenar a lista de acordo com a data.
-    sorted_list = sorted(all_news, key=attrgetter('update_date'))
-    news_1 = sorted_list[0].to_json(sorted_list[0])
-    news_2 = sorted_list[1].to_json(sorted_list[1])
-    json_full = {
-        'news_01':news_1,
-        'news_02':news_2
-    }
-
-    return json_full
 #Retornar um json com todos os jsons de deputados ordenados por nome
 @api.route('/deputies')
 def index():
