@@ -1,0 +1,23 @@
+name: Run deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy etl_camara to DigitalOcean
+        uses: fifsky/ssh-action@master
+        with:
+          command: |
+            cd 
+            rm -rf etl_camara
+            git clone https://github.com/parlamentaqui/etl_camara/
+            cp envs/.env_camara etl_camara/.env
+            cd etl_camara
+            make start-prod
+          host: ${{ secrets.DO_HOST }}
+          pass: ${{ secrets.DO_PASSWORD }}

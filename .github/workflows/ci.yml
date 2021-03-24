@@ -1,0 +1,31 @@
+name: Run CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  container_name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build etl_camara
+        uses: fifsky/ssh-action@master
+        with:
+          command: |
+            cd 
+            cd CI
+            rm -rf etl_camara
+            git clone https://github.com/parlamentaqui/etl_camara/
+            cp envs/.env_camara etl_camara/.env
+            cd etl_camara
+            git checkout ${{ github.event.pull_request.head.ref }}
+            python3 -m venv env
+            source env/bin/activate
+            pip install -r requirements.txt
+            nohup python src/app.py &
+            sleep 15
+            curl --fail 0.0.0.0:6004
+            kill -9 $(lsof -t -i:6004)
+          host: ${{ secrets.DO_HOST }}
+          pass: ${{ secrets.DO_PASSWORD }}
