@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
-
+fails
 api = Blueprint('api', __name__, url_prefix='/api')
 
 #Retornar um json com todos os jsons de deputados ordenados por nome
