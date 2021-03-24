@@ -7,7 +7,16 @@ from operator import attrgetter
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
-#Retornar um json com todos os jsons de deputados ordenados por nome
+# Rota que retorna um deputado em específico usando um id
+@api.route('/deputado_especifico/<id>')
+def ver_deputado(id):
+    r = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{id}")
+
+    json_deputy = r.json()
+
+    return json_deputy["dados"]
+
+# Rota que retorna um json com todos os jsons de deputados ordenados por nome
 @api.route('/deputies')
 def index():
     full_json = []
@@ -19,7 +28,7 @@ def index():
 
     return jsonify(full_json)
 
-#Resultado das buscas de acordo com o filtro
+# Rota que retorna o resultado de uma busca de acordo com os filtros no corpo da requsisçao POST
 @api.route('/resultado', methods=['POST'])
 def resultado():
     #recebemos um json do request com {nome, uf e partido}
@@ -60,7 +69,14 @@ def resultado():
     # Retorna no formato JSON a lista de objetos full_json
     return jsonify(full_json)
 
+# Rota para apagar os todos os deputados do DB (USAR SOMENTE PARA TESTES) 
+@api.route('/remover_deputados')
+def apagar_deputados():
+    Deputy.objects.all().delete()
+    return "Deputados apagados com sucesso"
 
+
+# Rota que popula no DB os dados dos deputados registrados nos dados abertos da câmara
 @api.route('/atualizar_deputados')
 def atualizar_deputados():
     r = requests.get(f'https://dadosabertos.camara.leg.br/arquivos/deputados/json/deputados.json')
@@ -72,7 +88,7 @@ def atualizar_deputados():
 
     #Iterar por todos os deputados que se encontram no basic json
     for item in filtered_list:
-        all_deputies.append(create_deputy(item))
+        all_deputies.append(create_deputy(item))  
 
     return jsonify(all_deputies)
 
@@ -82,41 +98,52 @@ def create_deputy(deputy_json):
     request_full_deputy_info = requests.get(deputy_json["uri"])
     real_json = request_full_deputy_info.json()["dados"]
 
-    #1-verificar o None da data de nascimento e ultima atualização (verificar ternários do método)
     #2-criar uma lógica que popule corretamente as redes sociais 
-    #3-verificar se o deputado já existe para não atualizar desnecessariamente (essa lógica so pode ser usada depois de consertar as issues acima)
+    #3-verificar se o deputado já existe para não atualizar desnecessariamente 
 
-    #criar uma lógica que popule corretamente o ano inicial e final da legislatura
+    # Lógica que popula corretamente o ano inicial e final da legislatura
     request_initial_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaInicial"]}')
     initial_legislature_json = request_initial_legistaure.json()["dados"]
 
     request_final_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaFinal"]}')
     final_legislature_json = request_final_legistaure.json()["dados"]
+   
+    # Aqui se cria uma variavel que ira definir o ultimo status do deputado
+    real_last_activity_date = real_json["ultimoStatus"]["data"]
+    last_activity_date = str(real_last_activity_date)
 
-    #Calucular as substrings do last_activity_date
-    real_last_activity_date = str(real_json["ultimoStatus"]["data"])
-    real_last_activity_date = real_last_activity_date[0:10]
+    # Lógica para verificar se a informação de ultimo status está vazia ou não e corrigi-la para o formato correto
+    if real_last_activity_date is None:
+        last_activity_date = None
 
-    #popular a nova classe de acordo com as infos
+    elif len(real_last_activity_date) < 8:
+        real_last_activity_date = None
+        last_activity_date = None
+
+    else:
+        last_activity_date = last_activity_date[0:10]
+        last_activity_date = datetime.strptime(last_activity_date, '%Y-%m-%d')
+
+    # Popular a nova classe de acordo com as infos recebidas do objeto deputy_json
     new_deputy = Deputy(
-        id=real_json["id"], 
-        name=real_json["ultimoStatus"]["nomeEleitoral"],
-        photo_url=real_json["ultimoStatus"]["urlFoto"],
-        initial_legislature_id=deputy_json["idLegislaturaInicial"],
-        final_legislature_id=deputy_json["idLegislaturaFinal"],
-        initial_legislature_year=datetime.strptime(str(initial_legislature_json["dataInicio"]), '%Y-%m-%d').year,
-        final_legislature_year=datetime.strptime(str(final_legislature_json["dataFim"]), '%Y-%m-%d').year,
-        last_activity_date=datetime.strptime(real_last_activity_date, '%Y-%m-%d') if len(real_last_activity_date) is "None" else None,
-        full_name=real_json["nomeCivil"],
-        sex=real_json["sexo"],
+        birth_date=datetime.strptime(str(real_json["dataNascimento"]), '%Y-%m-%d') if real_json["dataNascimento"] is not None else None,
+        death_date= datetime.strptime(str(real_json["dataFalecimento"]), '%Y-%m-%d') if real_json["dataFalecimento"] is not None else None,
         email=real_json["ultimoStatus"]["email"],
-        birth_date=datetime.strptime(str(real_json["dataNascimento"]), '%Y-%m-%d') if len(str(real_json["dataNascimento"])) is "None" else None,
-        death_date= datetime.strptime(str(real_json["dataFalecimento"]), '%Y-%m-%d') if len(str(real_json["dataFalecimento"])) is "None" else None,
+        facebook_username=None,
         federative_unity=real_json["ufNascimento"],
-        party=real_json["ultimoStatus"]["siglaPartido"],
+        final_legislature_id=deputy_json["idLegislaturaFinal"],
+        final_legislature_year=datetime.strptime(str(final_legislature_json["dataFim"]), '%Y-%m-%d').year,
+        full_name=real_json["nomeCivil"],
+        id=real_json["id"], 
         instagram_username=None,  
+        initial_legislature_id=deputy_json["idLegislaturaInicial"],
+        initial_legislature_year=datetime.strptime(str(initial_legislature_json["dataInicio"]), '%Y-%m-%d').year,
+        last_activity_date=last_activity_date,
+        name=real_json["ultimoStatus"]["nomeEleitoral"],
+        party=real_json["ultimoStatus"]["siglaPartido"],
+        photo_url=real_json["ultimoStatus"]["urlFoto"],
+        sex=real_json["sexo"],
         twitter_username=None,
-        facebook_username=None
         ).save()
 
     return new_deputy.to_json(new_deputy)
