@@ -2,9 +2,9 @@ import json
 from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
+ERRO
 
 api = Blueprint('api', __name__, url_prefix='/api')
-
 #Retornar um json com todos os jsons de deputados ordenados por nome
 @api.route('/deputies')
 def index():
