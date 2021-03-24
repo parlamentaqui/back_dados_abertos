@@ -12,7 +12,7 @@ def index():
     sorted_list = sorted(Deputy.objects, key=attrgetter('name'))
 
     for deputy in sorted_list:
-        temp_json = deputy.to_json(deputy)
+        temp_json = deputy.to_json()
         full_json.append(temp_json)
 
     return jsonify(full_json)
@@ -52,8 +52,18 @@ def resultado():
     full_json = []
 
     for deputy in sorted_list:
-        temp_json = deputy.to_json(deputy)
+        temp_json = deputy.to_json()
         full_json.append(temp_json)
 
     # Retorna no formato JSON a lista de objetos full_json
     return jsonify(full_json)
+
+@api.route('/deputies/<id>')
+def profile(id):
+    for profile in Deputy.objects:
+      #Adicionar informacoes que estao comentadas
+        if int(id) == int(profile.id):
+            return profile.to_json()
+        
+    return {} 
+        
