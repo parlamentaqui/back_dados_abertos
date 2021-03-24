@@ -9,16 +9,16 @@ jobs:
   container_name:
     runs-on: ubuntu-latest
     steps:
-      - name: Build etl_tse
+      - name: Build etl_camara
         uses: fifsky/ssh-action@master
         with:
           command: |
             cd 
             cd CI
-            rm -rf etl_tse
-            git clone https://github.com/parlamentaqui/etl_tse/
-            cp envs/.env_tse etl_tse/.env
-            cd etl_tse
+            rm -rf etl_camara
+            git clone https://github.com/parlamentaqui/etl_camara/
+            cp envs/.env_camara etl_camara/.env
+            cd etl_camara
             git checkout ${{ github.event.pull_request.head.ref }}
             python3 -m venv env
             source env/bin/activate
