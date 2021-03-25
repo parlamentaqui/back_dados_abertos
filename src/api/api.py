@@ -11,13 +11,9 @@ def deputados():
     s_list = sorted(Deputy.objects, reverse=True, key=attrgetter('last_activity_date'))
     all_deputies = []
     for deputy in s_list:
-        depu_json= {}
-        depu_json["name"] = deputy.name
-        depu_json["photo_url"] = deputy.photo_url
-        depu_json["party"] = deputy.party
-        depu_json["federative_unity"] = deputy.federative_unity
+        depu_json= deputy.to_json()
         all_deputies.append(depu_json)
-    return jsonify(all_deputies)
+    return jsonify(all_deputies[:6])
 
 #Retornar um json com todos os jsons de deputados ordenados por nome
 @api.route('/deputies')
