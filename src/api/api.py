@@ -88,6 +88,7 @@ def profile(id):
         
     return {} 
         
+
 @api.route('/federative_unities')
 def federative_unities():
     r = requests.get(f'https://servicodados.ibge.gov.br/api/v1/localidades/estados')
@@ -98,6 +99,8 @@ def federative_unities():
         federative_unity_temp["uf"] = federative_unity["sigla"]
         federative_unity_temp["name"] = federative_unity["nome"]
         custom_federative_unities_json.append(federative_unity_temp)
+    
+    custom_federative_unities_json = sorted(custom_federative_unities_json,key=lambda k: k['name'])
     return jsonify(custom_federative_unities_json)
 
 
@@ -109,7 +112,7 @@ def parties():
         parties_list.append(deputy.party)
     used = set()
     unique = [x for x in parties_list if x not in used and (used.add(x) or True)]
-    return jsonify(unique) 
+    return jsonify(sorted(unique)) 
         
 
 # Rota para apagar os todos os deputados do DB (USAR SOMENTE PARA TESTES) 
