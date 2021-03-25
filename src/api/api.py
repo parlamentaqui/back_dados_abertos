@@ -77,3 +77,27 @@ def profile(id):
         
     return {} 
         
+@api.route('/federative_unities')
+def federative_unities():
+    r = requests.get(f'https://servicodados.ibge.gov.br/api/v1/localidades/estados')
+    all_federative_unities_json = r.json()
+    custom_federative_unities_json = []
+    for federative_unity in all_federative_unities_json:
+        federative_unity_temp = {}
+        federative_unity_temp["uf"] = federative_unity["sigla"]
+        federative_unity_temp["name"] = federative_unity["nome"]
+        custom_federative_unities_json.append(federative_unity_temp)
+    return jsonify(custom_federative_unities_json)
+
+
+@api.route('/parties')
+def parties():
+    parties_list = []
+    for deputy in Deputy.objects:
+      #Adicionar informacoes que estao comentadas
+        parties_list.append(deputy.party)
+    used = set()
+    unique = [x for x in parties_list if x not in used and (used.add(x) or True)]
+    return jsonify(unique) 
+        
+
