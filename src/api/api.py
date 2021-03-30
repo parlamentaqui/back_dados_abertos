@@ -195,25 +195,81 @@ def create_deputy(deputy_json):
     return new_deputy.to_json(new_deputy)
 
 # Rota que popula no DB os dados das votacoes dos deputados
-@api.route('/atualizar_votacao')
-def atualizar_votacao():
+@api.route('/atualizar_votos')
+def atualizar_votos():
+    #request para api da câmara que retorna todos os votos em projetos em ordem de data
     r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro")
-    vote_json = r.json()["dados"]
-    # return jsonify(vote_json)
+    all_votes_json = r.json()["dados"]
 
-    for votacao in vote_json:
+    #para cada voto desse, encontrar os deputados responsáveis, quem votou ou não
+    for vote in all_votes_json:
         
-        string_uri = votacao["uri"] + "/votos"
-        r2 = requests.get(string_uri)
-        temp1_json = r2.json()["dados"]
-        if temp1_json is not None:
-            return jsonify(temp1_json)
-    return jsonify(vote_json)
+        vote_uri = vote["uri"] + "/votos"
+        r2 = requests.get(vote_uri)
+        specific_vote_json = r2.json()["dados"]
 
-def get_deputy_b_id(id):
+        #caso a lista nao seja vazia, verificar e/ou popular esse voto no banco de dados
+        if specific_vote_json:
 
-        for deputy in Deputy.objects:
-            if deputy.id is id:
-                return deputy
+            #para cada voto dentro da lista, atualizar o banco
+            for this_vote in specific_vote_json:
+                print(this_vote)
+                deputy_json = this_vote["deputado_"]
 
-        return None
+                # Verificar se esse voto já foi populado/criado corretamente, caso nao tenha sido, criar um novo.
+                need_create_vote = True
+                for item in Parlamentary_vote.objects:
+                    if (int(item.id_voting) is int(vote["id"])) and (int(item.id_deputy) is int(deputy_json["id"])):
+                        need_create_vote = False
+                        print('Não precisa criar o voto do : ' + deputy_json["nome"])
+                        break
+                        
+                
+                #passou da verificação e precisa criar um voto
+                if need_create_vote:
+                    vote_date = datetime.strptime(str(this_vote["dataRegistroVoto"]), '%Y-%m-%dT%H:%M:%S') if len(this_vote["dataRegistroVoto"]) > 5 else None
+
+                    #lógica se votou de acordo com o partido:
+                    voted_accordingly_party = voted_accordingly_party_method(this_vote["tipoVoto"], deputy_json["siglaPartido"])
+
+                    #Criar o novo voto parlamentar e salvar no banco com o métodos .save() 
+                    new_vote = Parlamentary_vote(
+                        id_voting = vote["id"],
+                        id_deputy = deputy_json["id"],
+                        deputy_name = deputy_json["nome"],
+                        party = deputy_json["siglaPartido"],
+                        federative_unity = deputy_json["siglaUf"],
+                        id_legislature = str(deputy_json["idLegislatura"]),
+                        date_time_vote = vote_date,
+                        vote = this_vote["tipoVoto"],
+                        voted_accordingly = voted_accordingly_party
+                    ).save()
+
+    #printar todos os valores dos banco de dados
+    all_parlamentary_votes = []
+
+    for item in Parlamentary_vote.objects:
+        all_parlamentary_votes.append(item.to_json())
+
+    return jsonify(all_parlamentary_votes)
+
+def voted_accordingly_party_method(vote_type, party):
+    #Essa função vai retornar Sim ou Não
+    return_value = "Sim"
+    return return_value
+
+@api.route('/deletar_votos')
+def deletar_votos():
+    Parlamentary_vote.objects.all().delete()
+
+    return "Deletou todos os votos do banco de dados"
+
+@api.route('/get_votes')
+def get_votes():
+    #printar todos os valores dos banco de dados
+    all_parlamentary_votes = []
+
+    for item in Parlamentary_vote.objects:
+        all_parlamentary_votes.append(item.to_json())
+
+    return jsonify(all_parlamentary_votes)
