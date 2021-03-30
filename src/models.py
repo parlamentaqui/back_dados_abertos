@@ -41,4 +41,27 @@ class Deputy(Document):
             'twitter_username':self.twitter_username,
             'facebook_username':self.facebook_username
         }
-    
+
+class Parliamentary_vote(Document):
+    id_voting = StringField(primary_key=True)
+    id_deputy = IntField(required=True)
+    deputy_name = StringField()
+    party = StringField()
+    federative_unity = StringField()
+    id_legislature = StringField()
+    date_time_vote = DateTimeField()
+    vote = StringField()
+    voted_accordingly = StringField()
+        
+    def to_json(self):
+        return{
+            'id_voting': self.id_voting
+            'id_deputy': self.id_deputy
+            'deputy_name': self.deputy_name
+            'party': self.party
+            'federative_unity': self.federative_unity
+            'id_legislature': self.id_legislature
+            'date_time_vote': self.date_time_vote
+            'vote': self.vote
+            'voted_accordingly': self.voted_accordingly
+        }

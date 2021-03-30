@@ -197,23 +197,17 @@ def create_deputy(deputy_json):
 # Rota que popula no DB os dados das votacoes dos deputados
 @api.route('/atualizar_votacao')
 def atualizar_votacao():
-    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem-DESC&ordenarPordataHoraRegistro")
+    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro")
     vote_json = r.json()["dados"]
+    # return jsonify(vote_json)
 
     for votacao in vote_json:
-        r2 = requests.get(votacao["uri"])
-        print(votacao["uri"])
-        votacao_json = r2.json()["dados"]
         
-        return jsonify(votacao_json["objetosPossiveis"][0])
-        return jsonify(votacao_json)
-
-        uri_direta = votacao_json["uriProposicaoCitada"] + "/autores"
-        r3 = requests.get(url_direta)
-        json_author_proposition = r3.json()["dados"]
-
-        break
-
+        string_uri = votacao["uri"] + "/votos"
+        r2 = requests.get(string_uri)
+        temp1_json = r2.json()["dados"]
+        if temp1_json is not None:
+            return jsonify(temp1_json)
     return jsonify(vote_json)
 
 def get_deputy_b_id(id):
