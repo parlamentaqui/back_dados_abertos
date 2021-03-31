@@ -52,6 +52,10 @@ class Parlamentary_vote(Document):
     date_time_vote = DateTimeField()
     vote = StringField()
     voted_accordingly = StringField()
+    proposition_id = StringField()
+    proposition_description = StringField()
+    proposition_title = StringField()
+    proposition_link = StringField()
         
     def to_json(self):
         return{
@@ -63,5 +67,9 @@ class Parlamentary_vote(Document):
             'id_legislature': self.id_legislature,
             'date_time_vote': self.date_time_vote,
             'vote': self.vote,
-            'voted_accordingly': self.voted_accordingly
+            'voted_accordingly': self.voted_accordingly,
+            'proposition_id': self.proposition_id,
+            'proposition_description': self.proposition_description,
+            'proposition_title': self.proposition_title,
+            'proposition_link': self.proposition_link
         }

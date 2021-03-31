@@ -199,27 +199,31 @@ def create_deputy(deputy_json):
 def atualizar_votos():
     #request para api da câmara que retorna todos os votos em projetos em ordem de data
     r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro")
-    all_votes_json = r.json()["dados"]
+    # r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?dataInicio=2020-01-01&dataFim=2020-12-31&ordem=DESC&ordenarPor=dataHoraRegistro")
+    all_votes_json = r.json()
+
+    all_parlamentary_votes = []
 
     #para cada voto desse, encontrar os deputados responsáveis, quem votou ou não
-    for vote in all_votes_json:
+    for vote in all_votes_json["dados"]:
         
         vote_uri = vote["uri"] + "/votos"
         r2 = requests.get(vote_uri)
-        specific_vote_json = r2.json()["dados"]
+        specific_vote_list = r2.json()["dados"]
 
         #caso a lista nao seja vazia, verificar e/ou popular esse voto no banco de dados
-        if specific_vote_json:
-
-            #para cada voto dentro da lista, atualizar o banco
-            for this_vote in specific_vote_json:
-                print(this_vote)
+        if specific_vote_list:
+            #pegar o json da proposição desse voto
+            proposition_json = get_proposition_json_by_vote(vote)
+            
+            #para cada voto dentro da lista, atualizar o banco 
+            for this_vote in specific_vote_list:
                 deputy_json = this_vote["deputado_"]
 
                 # Verificar se esse voto já foi populado/criado corretamente, caso nao tenha sido, criar um novo.
                 need_create_vote = True
                 for item in Parlamentary_vote.objects:
-                    if (int(item.id_voting) is int(vote["id"])) and (int(item.id_deputy) is int(deputy_json["id"])):
+                    if (str(item.id_voting) is str(vote["id"])) and (int(item.id_deputy) is int(deputy_json["id"])):
                         need_create_vote = False
                         print('Não precisa criar o voto do : ' + deputy_json["nome"])
                         break
@@ -230,7 +234,7 @@ def atualizar_votos():
                     vote_date = datetime.strptime(str(this_vote["dataRegistroVoto"]), '%Y-%m-%dT%H:%M:%S') if len(this_vote["dataRegistroVoto"]) > 5 else None
 
                     #lógica se votou de acordo com o partido:
-                    voted_accordingly_party = voted_accordingly_party_method(this_vote["tipoVoto"], deputy_json["siglaPartido"])
+                    voted_accordingly_party = voted_accordingly_party_method(this_vote["tipoVoto"], deputy_json["siglaPartido"], vote["uri"])
 
                     #Criar o novo voto parlamentar e salvar no banco com o métodos .save() 
                     new_vote = Parlamentary_vote(
@@ -242,21 +246,60 @@ def atualizar_votos():
                         id_legislature = str(deputy_json["idLegislatura"]),
                         date_time_vote = vote_date,
                         vote = this_vote["tipoVoto"],
-                        voted_accordingly = voted_accordingly_party
+                        voted_accordingly = voted_accordingly_party,
+                        proposition_id = str(proposition_json["id"]),
+                        proposition_description = proposition_json["ementa"],
+                        proposition_title = proposition_json["descricaoTipo"],
+                        proposition_link = proposition_json["urlInteiroTeor"]
                     ).save()
 
-    #printar todos os valores dos banco de dados
-    all_parlamentary_votes = []
-
-    for item in Parlamentary_vote.objects:
-        all_parlamentary_votes.append(item.to_json())
-
+                    all_parlamentary_votes.append(new_vote.to_json())
+    
+    #esse return ta estranho, tem que ver o Parlamentary_vote.objects
     return jsonify(all_parlamentary_votes)
 
-def voted_accordingly_party_method(vote_type, party):
-    #Essa função vai retornar Sim ou Não
-    return_value = "Sim"
-    return return_value
+def voted_accordingly_party_method(vote_type, party, vote_uri):
+    orientation_uri = vote_uri + "/orientacoes"
+    r = requests.get(orientation_uri)
+
+    orientation_json = r.json()["dados"]
+
+    #para todo json dentro, encontrar o partido desse deputado
+    for item in orientation_json:
+        deputy_party_lower = party.lower()
+        item_party_lower = item["siglaPartidoBloco"].lower()
+
+        if item_party_lower is deputy_party_lower:
+            vote_type_lower = vote_type.lower()
+            party_vote_type_lower = item["orientacaoVoto"].lower()
+            if party_vote_type_lower is vote_type_lower:
+                return "Sim" 
+
+    #Essa função vai retornar Sim ou Não 
+    return "Não"
+
+def get_proposition_json_by_vote(vote_json):
+    #Pegar qual proposição é de acordo com a votação
+    r3 = requests.get(vote_json["uri"])
+    proposition_vote_json = r3.json()["dados"]
+
+    if proposition_vote_json["proposicoesAfetadas"]:
+        #caso tenha uma proposição afetada, pegar o json dessa proposição
+        r4 = requests.get(proposition_vote_json["proposicoesAfetadas"][0]["uri"])
+
+        proposition_full_json = r4.json()["dados"]
+        return proposition_full_json
+    
+    #caso nao encontre nenhuma proposição, criar um json temporario com os mesmos nomes do json utilizados na criação de elemntos do banco de dados
+    temp_json = {
+        'id':None,
+        'ementa':None,
+        'descricaoTipo':None,
+        'urlInteiroTeor':None
+    }
+    
+    return temp_json
+
 
 @api.route('/deletar_votos')
 def deletar_votos():
@@ -270,6 +313,6 @@ def get_votes():
     all_parlamentary_votes = []
 
     for item in Parlamentary_vote.objects:
-        all_parlamentary_votes.append(item.to_json())
+        all_parlamentary_votes.append(item.to_json()) 
 
     return jsonify(all_parlamentary_votes)
