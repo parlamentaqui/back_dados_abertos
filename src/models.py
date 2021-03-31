@@ -43,7 +43,8 @@ class Deputy(Document):
         }
 
 class Parlamentary_vote(Document):
-    id_voting = StringField(primary_key=True)
+    unique_id = StringField(primary_key=True)
+    id_voting = StringField(required=True)
     id_deputy = IntField(required=True)
     deputy_name = StringField()
     party = StringField()
@@ -59,6 +60,7 @@ class Parlamentary_vote(Document):
         
     def to_json(self):
         return{
+            'unique_id': self.unique_id,
             'id_voting': self.id_voting,
             'id_deputy': self.id_deputy,
             'deputy_name': self.deputy_name,
