@@ -251,12 +251,17 @@ def atualizar_votos():
                         proposition_description = proposition_json["ementa"],
                         proposition_title = proposition_json["descricaoTipo"],
                         proposition_link = proposition_json["urlInteiroTeor"]
-                    ).save()
+                    )
 
-                    all_parlamentary_votes.append(new_vote.to_json())
+                    all_parlamentary_votes.append(new_vote)
+
+    all_parlamentary_votes_json = []
+    for item in all_parlamentary_votes:
+        item.save()
+        all_parlamentary_votes_json.append(item.to_json())
     
     #esse return ta estranho, tem que ver o Parlamentary_vote.objects
-    return jsonify(all_parlamentary_votes)
+    return jsonify(all_parlamentary_votes_json) 
 
 def voted_accordingly_party_method(vote_type, party, vote_uri):
     orientation_uri = vote_uri + "/orientacoes"
@@ -269,10 +274,10 @@ def voted_accordingly_party_method(vote_type, party, vote_uri):
         deputy_party_lower = party.lower()
         item_party_lower = item["siglaPartidoBloco"].lower()
 
-        if item_party_lower is deputy_party_lower:
+        if item_party_lower in deputy_party_lower:
             vote_type_lower = vote_type.lower()
             party_vote_type_lower = item["orientacaoVoto"].lower()
-            if party_vote_type_lower is vote_type_lower:
+            if party_vote_type_lower in vote_type_lower:
                 return "Sim" 
 
     #Essa função vai retornar Sim ou Não 
