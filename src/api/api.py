@@ -223,7 +223,7 @@ def atualizar_votos():
                 # Verificar se esse voto já foi populado/criado corretamente, caso nao tenha sido, criar um novo.
                 need_create_vote = True
                 for item in Parlamentary_vote.objects:
-                    if (str(item.id_voting) is str(vote["id"])) and (int(item.id_deputy) is int(deputy_json["id"])):
+                    if (str(item.id_voting) in str(vote["id"])) and (int(item.id_deputy) is int(deputy_json["id"])):
                         need_create_vote = False
                         print('Não precisa criar o voto do : ' + deputy_json["nome"])
                         break
