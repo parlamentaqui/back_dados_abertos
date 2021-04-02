@@ -19,6 +19,8 @@ class Deputy(Document):
     instagram_username = StringField()
     twitter_username = StringField()
     facebook_username = StringField()
+    twitter_id = StringField()
+    website = StringField()
 
     def to_json(self):
         return{
@@ -39,7 +41,9 @@ class Deputy(Document):
             'party':self.party,
             'instagram_username':self.instagram_username,
             'twitter_username':self.twitter_username,
-            'facebook_username':self.facebook_username
+            'facebook_username':self.facebook_username,
+            'twitter_id':self.twitter_id,
+            'website':self.website
         }
 
 class Parlamentary_vote(Document):
