@@ -199,7 +199,6 @@ def create_deputy(deputy_json):
 def update_votes():
     #request para api da câmara que retorna todos os votos em projetos em ordem de data
     r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro")
-    # r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?dataInicio=2020-01-01&dataFim=2020-12-31&ordem=DESC&ordenarPor=dataHoraRegistro") #request do ano passado (2020)
     all_votes_json = r.json()
 
     #para cada voto desse, encontrar os deputados responsáveis, quem votou ou não
