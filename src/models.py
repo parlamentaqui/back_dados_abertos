@@ -19,6 +19,8 @@ class Deputy(Document):
     instagram_username = StringField()
     twitter_username = StringField()
     facebook_username = StringField()
+    twitter_id = StringField()
+    website = StringField()
 
     def to_json(self):
         return{
@@ -39,6 +41,41 @@ class Deputy(Document):
             'party':self.party,
             'instagram_username':self.instagram_username,
             'twitter_username':self.twitter_username,
-            'facebook_username':self.facebook_username
+            'facebook_username':self.facebook_username,
+            'twitter_id':self.twitter_id,
+            'website':self.website
         }
-    
+
+class Parlamentary_vote(Document):
+    unique_id = StringField(primary_key=True)
+    id_voting = StringField(required=True)
+    id_deputy = IntField(required=True)
+    deputy_name = StringField()
+    party = StringField()
+    federative_unity = StringField()
+    id_legislature = StringField()
+    date_time_vote = DateTimeField()
+    vote = StringField()
+    voted_accordingly = StringField()
+    proposition_id = StringField()
+    proposition_description = StringField()
+    proposition_title = StringField()
+    proposition_link = StringField()
+        
+    def to_json(self):
+        return{
+            'unique_id': self.unique_id,
+            'id_voting': self.id_voting,
+            'id_deputy': self.id_deputy,
+            'deputy_name': self.deputy_name,
+            'party': self.party,
+            'federative_unity': self.federative_unity,
+            'id_legislature': self.id_legislature,
+            'date_time_vote': self.date_time_vote,
+            'vote': self.vote,
+            'voted_accordingly': self.voted_accordingly,
+            'proposition_id': self.proposition_id,
+            'proposition_description': self.proposition_description,
+            'proposition_title': self.proposition_title,
+            'proposition_link': self.proposition_link
+        }

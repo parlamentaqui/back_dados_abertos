@@ -193,3 +193,124 @@ def create_deputy(deputy_json):
         ).save()
 
     return new_deputy.to_json(new_deputy)
+
+# Rota que popula no DB os dados das votacoes dos deputados
+@api.route('/update_votes')
+def update_votes():
+    #request para api da câmara que retorna todos os votos em projetos em ordem de data
+    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro")
+    all_votes_json = r.json()
+
+    #para cada voto desse, encontrar os deputados responsáveis, quem votou ou não
+    for vote in all_votes_json["dados"]:
+        
+        vote_uri = vote["uri"] + "/votos"
+        r2 = requests.get(vote_uri)
+        specific_vote_list = r2.json()["dados"]
+
+        #caso a lista nao seja vazia, verificar e/ou popular esse voto no banco de dados
+        if specific_vote_list:
+            
+            #para cada voto dentro da lista, atualizar o banco 
+            for this_vote in specific_vote_list:
+                deputy_json = this_vote["deputado_"]
+                unique_vote_id = f'{vote["id"]}-{deputy_json["id"]}' #criar um id unico pra esse voto.
+
+                # Verificar se esse voto já foi populado/criado corretamente, caso nao tenha sido, criar um novo.
+                need_create_vote = True
+                for item in Parlamentary_vote.objects:
+                    if item.unique_id in unique_vote_id:
+                        need_create_vote = False
+                        print('Não precisa criar o voto do : ' + deputy_json["nome"] + ' para a votação ' + vote["id"])
+                        break
+                        
+                
+                #passou da verificação e precisa criar um voto
+                if need_create_vote:
+                    #pegar o json da proposição desse voto
+                    proposition_json = get_proposition_json_by_vote(vote)
+
+                    #definir o datetime correto
+                    vote_date = datetime.strptime(str(this_vote["dataRegistroVoto"]), '%Y-%m-%dT%H:%M:%S') if len(this_vote["dataRegistroVoto"]) > 5 else None
+
+                    #lógica se votou de acordo com o partido:
+                    voted_accordingly_party = voted_accordingly_party_method(this_vote["tipoVoto"], deputy_json["siglaPartido"], vote["uri"])
+
+                    #Criar o novo voto parlamentar e salvar no banco com o métodos .save() 
+                    new_vote = Parlamentary_vote(
+                        unique_id = unique_vote_id,
+                        id_voting = vote["id"],
+                        id_deputy = deputy_json["id"],
+                        deputy_name = deputy_json["nome"],
+                        party = deputy_json["siglaPartido"],
+                        federative_unity = deputy_json["siglaUf"],
+                        id_legislature = str(deputy_json["idLegislatura"]),
+                        date_time_vote = vote_date,
+                        vote = this_vote["tipoVoto"],
+                        voted_accordingly = voted_accordingly_party,
+                        proposition_id = str(proposition_json["id"]),
+                        proposition_description = proposition_json["ementa"],
+                        proposition_title = proposition_json["descricaoTipo"],
+                        proposition_link = proposition_json["urlInteiroTeor"]
+                    ).save()
+
+    return "Done! Use api/get_votes url to get all votes in database"
+
+def voted_accordingly_party_method(vote_type, party, vote_uri):
+    orientation_uri = vote_uri + "/orientacoes"
+    r = requests.get(orientation_uri)
+
+    orientation_json = r.json()["dados"]
+
+    #para todo json dentro, encontrar o partido desse deputado
+    for item in orientation_json:
+        deputy_party_lower = party.lower()
+        item_party_lower = item["siglaPartidoBloco"].lower()
+
+        if item_party_lower in deputy_party_lower:
+            vote_type_lower = vote_type.lower()
+            party_vote_type_lower = item["orientacaoVoto"].lower()
+            if party_vote_type_lower in vote_type_lower:
+                return "Sim" 
+
+    #Essa função vai retornar Sim ou Não 
+    return "Não"
+
+def get_proposition_json_by_vote(vote_json):
+    #Pegar qual proposição é de acordo com a votação
+    r3 = requests.get(vote_json["uri"])
+    proposition_vote_json = r3.json()["dados"]
+
+    if proposition_vote_json["proposicoesAfetadas"]:
+        #caso tenha uma proposição afetada, pegar o json dessa proposição
+        r4 = requests.get(proposition_vote_json["proposicoesAfetadas"][0]["uri"])
+
+        proposition_full_json = r4.json()["dados"]
+        return proposition_full_json
+    
+    #caso nao encontre nenhuma proposição, criar um json temporario com os mesmos nomes do json utilizados na criação de elemntos do banco de dados
+    temp_json = {
+        'id':None,
+        'ementa':None,
+        'descricaoTipo':None,
+        'urlInteiroTeor':None
+    }
+    
+    return temp_json
+
+
+@api.route('/delete_votes')
+def delete_votes():
+    Parlamentary_vote.objects.all().delete()
+
+    return "All votes in database was deleted! Use api/update_votes to update database."
+
+@api.route('/get_votes')
+def get_votes():
+    #printar todos os valores dos banco de dados
+    all_parlamentary_votes = []
+
+    for item in Parlamentary_vote.objects:
+        all_parlamentary_votes.append(item.to_json()) 
+
+    return jsonify(all_parlamentary_votes)
