@@ -314,3 +314,14 @@ def get_votes():
         all_parlamentary_votes.append(item.to_json()) 
 
     return jsonify(all_parlamentary_votes)
+
+@api.route('/get_votes_by_deputy_id/<id>')
+def get_votes_by_deputy_id(id):
+    deputy_votes = []
+    for item in Parlamentary_vote.objects:
+        if int(item.id_deputy) == int(id):
+            deputy_votes.append(item.to_json())
+
+    return jsonify(deputy_votes)
+
+    
