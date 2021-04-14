@@ -298,7 +298,6 @@ def get_proposition_json_by_vote(vote_json):
     
     return temp_json
 
-
 @api.route('/delete_votes')
 def delete_votes():
     Parlamentary_vote.objects.all().delete()
@@ -324,23 +323,100 @@ def get_votes_by_deputy_id(id):
 
     return jsonify(deputy_votes)
 
-@api.route('/get_proposition_vote_by_deputy_id/<id>')
-def get_proposition_vote_by_id(id):
-    proposition_votes = []
+@api.route('/update_propositions')
+def update_propositions():
+    #request para api da câmara que retorna todos as proposições em tramitação nos uíltimos 30 dias por ordem de id 
+    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/proposicoes?itens=1000&ordem=ASC&ordenarPor=id")
+    all_propositions_r = r.json()
 
-    s_list = sorted(Parlamentary_vote.objects, reverse=False, key=attrgetter('date_time_vote'))
+    # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
+    all_propositions_json = []
+    for proposition in all_propositions_r["dados"]:
+        temp_id = int(proposition["id"])
+        if temp_id not in get_all_ids_DB(): 
+            r2 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{temp_id}")
+            all_propositions_json.append(r2.json())
 
-    for item in Parlamentary_vote.objects:
-        if int(item.id_deputy) == int(id):
-            need_add = True
-            for proposition in proposition_votes:
-                if str(proposition["proposition_id"]) in str(item.proposition_id):
-                    need_add = False
+    # Popula o banco de dados com as proposições que não existem nele
+    for proposition in all_propositions_json:
+        # dados_proposition = proposition["dados"]
 
-            if need_add:
-                proposition_votes.append(item.to_json())
+        # requisição para pegar informações do(s) autor(es) da proposicao
+        r3 = requests.get(proposition["dados"]["uriAutores"])
+        deputy_author_id = str(r3.json()["dados"][0]["uri"]).split("/")[6]
 
-    return jsonify(proposition_votes)
+        # deputy_info_json = r3.json()
+
+        # deputy_author_url_r = deputy_info_json["dados"]["autor"]["uri"]
+        # deputy_author_type_r = deputy_info_json["dados"]["autor"]["tipo"]
+        # deputy_author_name_r = deputy_info_json["dados"]["autor"]["nome"]   
+        deputy_author_url_r = "authorURL"
+        deputy_author_type_r = "authotType"
+        deputy_author_name_r = "authorName"
+
+        # requisicao para pegar a sigla do autor
+        # r4 = requests.get(r3.json()["dados"]["autor"][0]["uri"])
+        r4 = requests.get("https://dadosabertos.camara.leg.br/api/v2/deputados/{deputy_author_id}")
+
+        # deputy_uf_r = r4.json()["dados"]["ultimoStatus"]["siglaUf"]
+        deputy_uf_r = "UF"
 
 
+
+        # ajuste de formato de datas
+        apresentation_date = datetime.strptime(str(proposition["dados"]["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["dataApresentacao"]) > 5 else None
+        proposition_date = datetime.strptime(str(proposition["dados"]["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["statusProposicao"]["dataHora"]) > 5 else None
+
+        new_proposition = Proposicao(
+            proposicao_id = proposition["dados"]["id"],
+            id_deputado_autor = deputy_author_id,
+            uri = proposition["dados"]["uri"],
+            descricao_tipo = proposition["dados"]["descricaoTipo"],
+            ementa = proposition["dados"]["ementa"],
+            ementa_detalhada = proposition["dados"]["ementaDetalhada"],
+            keywords = proposition["dados"]["keywords"],
+            data_apresentacao = apresentation_date,
+            urlAutor = deputy_author_url_r,
+            tipoAutor = deputy_author_type_r,
+            nome_autor = deputy_author_name_r,
+            sigla_UF_autor = deputy_uf_r,
+            tema_proposicao = "--", # Não foi encontrado o campo tema no JSON do swagger da camara de deputados
+            sigla_orgao = proposition["dados"]["statusProposicao"]["siglaOrgao"], # Comeca aqui as informacoes do objeto de status
+            data_proposicao = proposition_date, 
+            descricao_situacao = proposition["dados"]["statusProposicao"]["descricaoSituacao"],
+            despacho = proposition["dados"]["statusProposicao"]["despacho"],
+            uri_relator = proposition["dados"]["statusProposicao"]["uriUltimoRelator"]
+        ).save()
+
+    return "Proposições atualizadas com sucesso."
+
+def get_all_ids_DB():
+    all_ids = []
+    for item in Proposicao.objects:
+        all_ids.append(int(item.id))
+    
+    return all_ids
+
+@api.route('/get_all_propositions')
+def get_all_proposition():
+    propositions = []
+
+    for prop in Proposicao.objects:
+        propositions.append(prop.to_json())
+
+    return jsonify(propositions)
+
+@api.route('/get_proposition_by_id/<id>')
+def get_proposition_by_id(id):
+    for prop in Proposicao.objects:
+        if int(prop.id) == int(id):
+            return jsonify(prop.to_json())
+
+    return "Erro. Proposicao nao encontrada"
+
+@api.route('/delete_all_propositions')
+def delete_all_propositions():
+    Proposicao.objects.all().delete()
+    return "Proposicoes apagadas com sucesso"
+    
     
