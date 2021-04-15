@@ -192,7 +192,7 @@ def create_deputy(deputy_json):
         twitter_username=None,
         ).save()
 
-    return new_deputy.to_json(new_deputy)
+    return new_deputy.to_json()
 
 # Rota que popula no DB os dados das votacoes dos deputados
 @api.route('/update_votes')
