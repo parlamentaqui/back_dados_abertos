@@ -172,8 +172,8 @@ def create_deputy(deputy_json):
 
     # Popular a nova classe de acordo com as infos recebidas do objeto deputy_json
     new_deputy = Deputy(
-        birth_date=datetime.strptime(str(real_json["dataNascimento"]), '%Y-%m-%d') if real_json["dataNascimento"] is not None else None,
-        death_date= datetime.strptime(str(real_json["dataFalecimento"]), '%Y-%m-%d') if real_json["dataFalecimento"] is not None else None,
+        birth_date=datetime.strptime(str(real_json["dataNascimento"]), '%Y-%m-%d') if len(str(real_json["dataNascimento"])) > 5 else None,
+        death_date= datetime.strptime(str(real_json["dataFalecimento"]), '%Y-%m-%d') if len(str(real_json["dataFalecimento"])) > 5 else None,
         email=real_json["ultimoStatus"]["email"],
         facebook_username=None,
         federative_unity=real_json["ufNascimento"],
@@ -221,7 +221,7 @@ def update_votes():
                 for item in Parlamentary_vote.objects:
                     if item.unique_id in unique_vote_id:
                         need_create_vote = False
-                        print('Não precisa criar o voto do : ' + deputy_json["nome"] + ' para a votação ' + vote["id"])
+                        # print('Não precisa criar o voto do : ' + deputy_json["nome"] + ' para a votação ' + vote["id"])
                         break
                         
                 
@@ -314,3 +314,33 @@ def get_votes():
         all_parlamentary_votes.append(item.to_json()) 
 
     return jsonify(all_parlamentary_votes)
+
+@api.route('/get_votes_by_deputy_id/<id>')
+def get_votes_by_deputy_id(id):
+    deputy_votes = []
+    for item in Parlamentary_vote.objects:
+        if int(item.id_deputy) == int(id):
+            deputy_votes.append(item.to_json())
+
+    return jsonify(deputy_votes)
+
+@api.route('/get_proposition_vote_by_deputy_id/<id>')
+def get_proposition_vote_by_id(id):
+    proposition_votes = []
+
+    s_list = sorted(Parlamentary_vote.objects, reverse=False, key=attrgetter('date_time_vote'))
+
+    for item in Parlamentary_vote.objects:
+        if int(item.id_deputy) == int(id):
+            need_add = True
+            for proposition in proposition_votes:
+                if str(proposition["proposition_id"]) in str(item.proposition_id):
+                    need_add = False
+
+            if need_add:
+                proposition_votes.append(item.to_json())
+
+    return jsonify(proposition_votes)
+
+
+    
