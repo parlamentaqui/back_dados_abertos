@@ -119,6 +119,7 @@ class Proposicao(Document):
             'descricao_situacao': self.descricao_situacao,
             'despacho': self.despacho,
             'uri_relator': self.uri_relator
+        }
 
 class Expenses(Document):
     deputy_id = IntField(required=True)
