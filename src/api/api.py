@@ -311,6 +311,59 @@ def get_votes():
 
     return jsonify(all_parlamentary_votes)
 
+@api.route('/update_expenses')
+def update_expenses():
+    for item in Deputy.objects:
+        r = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/deputados/{item.id}/despesas?ordem=ASC&ordenarPor=ano')
+        real_json = r.json()["dados"]
+        if not real_json: 
+            continue
+
+
+        for expense in real_json:
+            new_expenses = Expenses(
+                deputy_id =  int(item.id),
+                year =  expense["ano"],
+                month =  expense["mes"],
+                expenses_type =  expense["tipoDespesa"],
+                document_type =  expense["tipoDocumento"],
+                document_date = datetime.strptime(str( expense["dataDocumento"]), '%Y-%m-%d') if  expense["dataDocumento"] is not None else None,
+                document_num =  expense["codDocumento"],
+                document_value =  expense["valorDocumento"],
+                document_url =  expense["urlDocumento"],
+                supplier_name =  expense["nomeFornecedor"],
+                supplier_cnpj_cpf =  expense["cnpjCpfFornecedor"],
+                liquid_value =  expense["valorLiquido"],
+                glosa_value =  expense["valorGlosa"],
+                refund_num =  expense["numRessarcimento"],
+                batch_cod =  expense["codLote"],
+                tranche =  expense["parcela"],
+                ).save()
+    return "banco de dados atualizado com sucesso"
+
+@api.route('/expenses')
+def get_expenses():
+    all_expenses = []
+    for item in Expenses.objects:
+        all_expenses.append(item.to_json())
+
+    return jsonify(all_expenses)
+
+@api.route('/delete_expenses')
+def delete_expenses():
+    Expenses.objects.all().delete() 
+
+    return "All expenses in database was deleted! Use api/update_expenses to update database."
+
+@api.route('/expenses/<id>')
+def expense(id):
+    deputy_expenses = []
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses.to_json())
+        
+    return jsonify(deputy_expenses)
+
 @api.route('/get_votes_by_deputy_id/<id>')
 def get_votes_by_deputy_id(id):
     deputy_votes = []
