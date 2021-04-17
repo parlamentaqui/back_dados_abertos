@@ -79,3 +79,41 @@ class Parlamentary_vote(Document):
             'proposition_title': self.proposition_title,
             'proposition_link': self.proposition_link
         }
+
+class Expenses(Document):
+    deputy_id = IntField(required=True)
+    year = IntField(required=True)
+    month = IntField(required=True)
+    expenses_type = StringField()
+    document_type = StringField()
+    document_date = DateTimeField()
+    document_num = IntField(primary_key=True)
+    document_value = IntField()
+    document_url = StringField()
+    supplier_name = StringField()
+    supplier_cnpj_cpf = StringField()
+    liquid_value = IntField()
+    glosa_value = IntField()
+    refund_num = StringField()
+    batch_cod = IntField()
+    tranche = IntField()
+
+    def to_json(self):
+        return{
+            'deputy_id':self.deputy_id,
+            'year':self.year,
+            'month':self.month,
+            'expenses_type':self.expenses_type,
+            'document_type':self.document_type,
+            'document_date':self.document_date,
+            'document_num':self.document_num,
+            'document_value':self.document_value,
+            'document_url':self.document_url,
+            'supplier_name':self.supplier_name,
+            'supplier_cnpj_cpf':self.supplier_cnpj_cpf,
+            'liquid_value':self.liquid_value,
+            'glosa_value':self.glosa_value,
+            'refund_num':self.refund_num,
+            'batch_cod':self.batch_cod,
+            'tranche':self.tranche
+        }
