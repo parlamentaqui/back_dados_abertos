@@ -405,7 +405,7 @@ def update_propositions():
 
         if r3_json_splited[0] == "orgaos":
             r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{author_info_json_id}")
-            
+            # JSON com as informações do órgao autor da proposição
             author_url_r = author_info_json["dados"]["uri"]
             author_type_r = author_info_json["dados"]["tipoOrgao"]
             author_name_r = author_info_json["dados"]["nome"]
@@ -416,13 +416,21 @@ def update_propositions():
             author_name_r = author_info_json["dados"][0]["nome"]
 
         # Requisicao para pegar a sigla do autor
-        author_id = r3_json_splited[6]
         if author_info_json_type != "orgaos":
-            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{author_id}")
+            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{author_info_json_id}")
             author_uf_r = r4.json()["dados"]["ultimoStatus"]["siglaUf"]
         else:
-            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/orgaos/{author_id}")
+            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/orgaos/{author_info_json_id}")
             author_uf_r = r4.json()["dados"]["sigla"]
+
+        # Faz uma requisição para buscar o tema da proposição, já esta vem em outra rota através de seu id
+        prop_id = proposition["dados"]["id"]
+        r5 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{prop_id}/temas")
+
+        if len(r5.json()["dados"]) <= 0:
+            proposition_theme = "Nao encontrado"
+        else:
+            proposition_theme = r5.json()["dados"][0]["tema"]
 
         # Ajuste de formato de datas
         apresentation_date = datetime.strptime(str(proposition["dados"]["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["dataApresentacao"]) > 5 else None
@@ -441,7 +449,7 @@ def update_propositions():
             tipoAutor = author_type_r,
             nome_autor = author_name_r,
             sigla_UF_autor = author_uf_r,
-            tema_proposicao = "--", # Não foi encontrado o campo tema no JSON do swagger da camara de deputados
+            tema_proposicao = proposition_theme,
             sigla_orgao = proposition["dados"]["statusProposicao"]["siglaOrgao"], # Comeca aqui as informacoes do objeto de status
             data_proposicao = proposition_date, 
             descricao_situacao = proposition["dados"]["statusProposicao"]["descricaoSituacao"],
