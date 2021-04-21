@@ -454,7 +454,11 @@ def update_propositions():
             data_proposicao = proposition_date, 
             descricao_situacao = proposition["dados"]["statusProposicao"]["descricaoSituacao"],
             despacho = proposition["dados"]["statusProposicao"]["despacho"],
-            uri_relator = proposition["dados"]["statusProposicao"]["uriUltimoRelator"]
+            uri_relator = proposition["dados"]["statusProposicao"]["uriUltimoRelator"],
+            sigla_tipo = proposition["dados"]["siglaTipo"],
+            cod_tipo = proposition["dados"]["codTipo"],
+            numero = proposition["dados"]["numero"],
+            ano = proposition["dados"]["ano"]
         ).save()
 
     return "Proposições atualizadas com sucesso."
@@ -483,7 +487,7 @@ def get_proposition_by_id(id):
 
     return "Erro. Proposicao nao encontrada"
 
-@api.route('/delete_all_propositions')
+@api.route('/delete_propositions')
 def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
