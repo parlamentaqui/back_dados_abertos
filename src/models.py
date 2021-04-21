@@ -99,6 +99,10 @@ class Proposicao(Document):
     descricao_situacao = StringField()
     despacho = StringField()
     uri_relator = StringField()
+    sigla_tipo = StringField()
+    cod_tipo = IntField()
+    numero = IntField()
+    ano = IntField()
         
     def to_json(self):
         return{
@@ -118,7 +122,11 @@ class Proposicao(Document):
             'data_proposicao': self.data_proposicao,
             'descricao_situacao': self.descricao_situacao,
             'despacho': self.despacho,
-            'uri_relator': self.uri_relator
+            'uri_relator': self.uri_relator,
+            'sigla_tipo' : self.sigla_tipo,
+            'cod_tipo' : self.cod_tipo,
+            'numero' : self.numero,
+            'ano' : self.ano
         }
 
 class Expenses(Document):
