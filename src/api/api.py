@@ -373,7 +373,7 @@ def filtered_expenses(id):
     #recebemos um json do request com {nome, uf e partido}
     requested_json = request.get_json()
     supplier_name = str.lower(requested_json["razao_social"])
-    document_type = str.lower(requested_json["tipo_gasto"])
+    expenses_type = str.lower(requested_json["tipo_gasto"])
 
     # Cria uma lista vazia e preenche com os objetos salvos de Deputy
     all_deputy_expenses = []
@@ -387,9 +387,9 @@ def filtered_expenses(id):
     for expense in all_deputy_expenses:
         if len(supplier_name) > 0:
             #filtro pelo nome
-            if len(document_type) > 0:
+            if len(expenses_type) > 0:
                 #filtro pelo nome e pelo tipo
-                if str.lower(expense.document_type).find(document_type) != -1 and str.lower(expense.supplier_name).find(supplier_name) != -1:
+                if str.lower(expense.expenses_type).find(expenses_type) != -1 and str.lower(expense.supplier_name).find(supplier_name) != -1:
                     #encontrou o tipo
                     temp_list.append(expense)
                     continue
@@ -403,9 +403,9 @@ def filtered_expenses(id):
                     continue
                 else:
                     continue
-        elif len(document_type) > 0:
+        elif len(expenses_type) > 0:
             #filtro somente pelo tipo
-            if str.lower(expense.document_type).find(document_type) != -1:
+            if str.lower(expense.expenses_type).find(expenses_type) != -1:
                 #encontrou o tipo
                 temp_list.append(expense)
                 continue
