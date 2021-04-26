@@ -1,23 +1,18 @@
+import mock
 import unittest
 import requests
-import mock
-from api import *
+import requests_mock
+from "../app" import app
 
 
 class EndpointGETTestCase(unittest.TestCase):
 
   def setUp(self):
-    self.client = mock.Mock(spec=requests)
-    self.data = EndpointGETTestCase(self.client)
-
-  def test_status_server_deputies(self):
-    self.client.get.return_value = mock.Mock(status_code=200)
-
-    response = self.data.deputados()
-
-    self.assertEqual(200, response.status_code)
-
-  def test_deputado_especifico(self):
+    self.app = app()
+    
+  @requests_mock.Mocker()
+  def test_deputies_only(self, request_mock):
+    url = 'http://0.0.0.0:8004/api/deputado_especifico/204554'
     return_json = {
       "cpf": "36607606504",
       "dataFalecimento": null,
@@ -57,16 +52,31 @@ class EndpointGETTestCase(unittest.TestCase):
       "urlWebsite": null
     }
 
-    mock_response = mock.Mock(status_code=200)
-    mock_response.json.ver_deputado = return_json
-    self.client.get.ver_deputado = mock_response
+    request_mock.get(url, json=data)
+    request_mock.status_code(200)
+    
+    self.assertEqual(self.app.ver_deputado('204554'), return_json)
+    self.assertEqual('JOSE ABILIO SILVA DE SANTANA', return_json['nomeCivil'])
+    self.assertNotEqual('Joao da Silva', return_json['nomeCivil'])
 
-    response = self.data.ver_deputado(204554)
 
-    content = response.json()
+  @requests_mock.Mocker()
+  def test_federative_unities(self, request_mock):
+    url =  'federative_unities'
+    return_json = [
+      {
+          "name": "Acre",
+          "uf": "AC"
+      },
+      {
+          "name": "Alagoas",
+          "uf": "AL"
+      }
+    ]
+    request_mock.get(url, json=data)
+    request_mock.status_code(200)
 
-    self.assertEqual('JOSE ABILIO SILVA DE SANTANA', content['nomeCivil'])
-    self.assertNotEqual('Joao da Silva', content['nomeCivil'])
+    self.assertEqual(self.app.federative_unities(), return_json)
 
   def test_federative_unities(self):
     return_json = {
