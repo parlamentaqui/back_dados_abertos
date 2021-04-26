@@ -62,7 +62,7 @@ class EndpointGETTestCase(unittest.TestCase):
 
   @requests_mock.Mocker()
   def test_federative_unities(self, request_mock):
-    url =  'federative_unities'
+    url =  'http://0.0.0.0:8004/api/federative_unities'
     return_json = [
       {
           "name": "Acre",
