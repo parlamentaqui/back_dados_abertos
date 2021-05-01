@@ -491,3 +491,53 @@ def get_proposition_by_id(id):
 def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
+
+@api.route('/filtered_propositions', methods=['POST'])
+def filtered_propositions():
+    #Exemplo de Json de pesquisa: 
+    # {
+    #     "proposicao": "Projeto",
+    #     "deputado": "Reginaldo Lopes",
+    #     "partido": "PT"
+    # }
+    requested_json = request.get_json()
+    name_filter = str.lower(requested_json["proposicao"]) #descricao_tipo
+    deputy_filter = str.lower(requested_json["deputado"]) #nome_autor
+    party_filter = str.lower(requested_json["partido"]) #partido (id_deputado_autor)
+
+    # Cria uma lista vazia e preenche com os objetos salvos de Deputy
+    all_propositions = []
+    for item in Proposicao.objects:
+        all_propositions.append(item)
+ 
+    # Filtra os resultados da pesquisa
+    for proposition in Proposicao.objects:
+        # Variavel auxiliar que ira dizer se o deputado possui ou nao uma UF
+        
+        if str.lower(proposition.descricao_tipo).find(name_filter) != -1 or name_filter == "":
+            if str.lower(proposition.nome_autor) ==  deputy_filter or deputy_filter == "":
+                if (get_deputy_party(proposition.id_deputado_autor) != "" and str.lower(get_deputy_party(proposition.id_deputado_autor)) == party_filter) or party_filter == "":
+                    continue
+                else:
+                    all_propositions.remove(proposition)
+            else:
+                all_propositions.remove(proposition)
+        else:
+            all_propositions.remove(proposition)
+
+    # Cria um json com todos os deputados encontrados e já ordenados
+    full_json = []
+
+    for proposition in all_propositions:
+        temp_json = proposition.to_json()
+        full_json.append(temp_json)
+
+    # Retorna no formato JSON a lista de objetos full_json
+    return jsonify(full_json)
+
+def get_deputy_party(id):
+    for item in Deputy.objects:
+        if int(id) == int(item.id):
+            return item.party
+    
+    return ""
