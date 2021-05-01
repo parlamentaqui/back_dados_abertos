@@ -1,8 +1,7 @@
-import mock
 import unittest
 import requests
 import requests_mock
-from "../app" import app
+from app import app
 
 
 class EndpointGETTestCase(unittest.TestCase):
@@ -12,7 +11,7 @@ class EndpointGETTestCase(unittest.TestCase):
     
   @requests_mock.Mocker()
   def test_deputies_only(self, request_mock):
-    url = 'http://0.0.0.0:8004/api/deputado_especifico/204554'
+    url = 'https://dadosabertos.camara.leg.br/api/v2/deputados/204554'
     return_json = {
       "cpf": "36607606504",
       "dataFalecimento": null,
@@ -39,11 +38,11 @@ class EndpointGETTestCase(unittest.TestCase):
           },
           "id": 204554,
           "idLegislatura": 56,
-          "nome": "Abílio Santana",
-          "nomeEleitoral": "Abílio Santana",
+          "nome": "Abilio Santana",
+          "nomeEleitoral": "Abilio Santana",
           "siglaPartido": "PL",
           "siglaUf": "BA",
-          "situacao": "Exercício",
+          "situacao": "Exercicio",
           "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/204554",
           "uriPartido": "https://dadosabertos.camara.leg.br/api/v2/partidos/37906",
           "urlFoto": "https://www.camara.leg.br/internet/deputado/bandep/204554.jpg"
@@ -62,8 +61,30 @@ class EndpointGETTestCase(unittest.TestCase):
 
   @requests_mock.Mocker()
   def test_federative_unities(self, request_mock):
-    url =  'http://0.0.0.0:8004/api/federative_unities'
+    url =  'https://servicodados.ibge.gov.br/api/v1/localidades/estados'
     return_json = [
+    {
+        "id": 27,
+        "sigla": "AL",
+        "nome": "Alagoas",
+        "regiao": {
+            "id": 2,
+            "sigla": "NE",
+            "nome": "Nordeste"
+        }
+    },
+    {
+        "id": 12,
+        "sigla": "AC",
+        "nome": "Acre",
+        "regiao": {
+            "id": 1,
+            "sigla": "N",
+            "nome": "Norte"
+        }
+    }]
+    
+    response = [
       {
           "name": "Acre",
           "uf": "AC"
@@ -73,24 +94,9 @@ class EndpointGETTestCase(unittest.TestCase):
           "uf": "AL"
       }
     ]
+
     request_mock.get(url, json=data)
     request_mock.status_code(200)
 
-    self.assertEqual(self.app.federative_unities(), return_json)
+    self.assertEqual(self.app.federative_unities(), response)
 
-  def test_federative_unities(self):
-    return_json = {
-        "name": "Acre",
-        "uf": "AC"
-    }
-
-    mock_response = mock.Mock(status_code=200)
-    mock_response.json.federative_unities = return_json
-    self.client.get.federative_unities = mock_response
-
-    response = self.data.federative_unities()
-
-    content = response.json()
-
-    self.assertEqual('Acre', content['name'])
-    self.assertEqual('AC', content['uf'])
