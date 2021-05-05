@@ -9,4 +9,3 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /usr/src/etl_camara
 
 CMD ["python", "src/app.py"]
-
