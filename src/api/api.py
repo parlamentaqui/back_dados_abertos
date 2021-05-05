@@ -52,11 +52,15 @@ def resultado():
     for item in Deputy.objects:
         all_deputies.append(item)
  
-
     # Filtra os resultados da pesquisa
     for deputy in Deputy.objects:
+        # Variavel auxiliar que ira dizer se o deputado possui ou nao uma UF
+        aux = False
+        if deputy.federative_unity == None:
+            aux = True
+        
         if str.lower(deputy.name).find(name_filter) != -1 or name_filter == "":
-            if str.lower(deputy.federative_unity) ==  uf_filter or uf_filter == "":
+            if aux or str.lower(deputy.federative_unity) ==  uf_filter or uf_filter == "":
                 if str.lower(deputy.party) == party_filter or party_filter == "":
                     continue
                 else:
@@ -143,9 +147,6 @@ def create_deputy(deputy_json):
     #Criar uma nova requisição desse deputado para pegar as informações específicas
     request_full_deputy_info = requests.get(deputy_json["uri"])
     real_json = request_full_deputy_info.json()["dados"]
-
-    #2-criar uma lógica que popule corretamente as redes sociais 
-    #3-verificar se o deputado já existe para não atualizar desnecessariamente 
 
     # Lógica que popula corretamente o ano inicial e final da legislatura
     request_initial_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaInicial"]}')
@@ -298,12 +299,11 @@ def get_proposition_json_by_vote(vote_json):
     
     return temp_json
 
-
 @api.route('/delete_votes')
 def delete_votes():
     Parlamentary_vote.objects.all().delete()
 
-    return "All votes in database was deleted! Use api/update_votes to update database."
+    return "All votes in database were deleted! Use api/update_votes to update database."
 
 @api.route('/get_votes')
 def get_votes():
@@ -315,6 +315,59 @@ def get_votes():
 
     return jsonify(all_parlamentary_votes)
 
+@api.route('/update_expenses')
+def update_expenses():
+    for item in Deputy.objects:
+        r = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/deputados/{item.id}/despesas?ordem=ASC&ordenarPor=ano')
+        real_json = r.json()["dados"]
+        if not real_json: 
+            continue
+
+
+        for expense in real_json:
+            new_expenses = Expenses(
+                deputy_id =  int(item.id),
+                year =  expense["ano"],
+                month =  expense["mes"],
+                expenses_type =  expense["tipoDespesa"],
+                document_type =  expense["tipoDocumento"],
+                document_date = datetime.strptime(str( expense["dataDocumento"]), '%Y-%m-%d') if  expense["dataDocumento"] is not None else None,
+                document_num =  expense["codDocumento"],
+                document_value =  expense["valorDocumento"],
+                document_url =  expense["urlDocumento"],
+                supplier_name =  expense["nomeFornecedor"],
+                supplier_cnpj_cpf =  expense["cnpjCpfFornecedor"],
+                liquid_value =  expense["valorLiquido"],
+                glosa_value =  expense["valorGlosa"],
+                refund_num =  expense["numRessarcimento"],
+                batch_cod =  expense["codLote"],
+                tranche =  expense["parcela"],
+                ).save()
+    return "banco de dados atualizado com sucesso"
+
+@api.route('/expenses')
+def get_expenses():
+    all_expenses = []
+    for item in Expenses.objects:
+        all_expenses.append(item.to_json())
+
+    return jsonify(all_expenses)
+
+@api.route('/delete_expenses')
+def delete_expenses():
+    Expenses.objects.all().delete() 
+
+    return "All expenses in database was deleted! Use api/update_expenses to update database."
+
+@api.route('/expenses/<id>')
+def expense(id):
+    deputy_expenses = []
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses.to_json())
+        
+    return jsonify(deputy_expenses)
+
 @api.route('/get_votes_by_deputy_id/<id>')
 def get_votes_by_deputy_id(id):
     deputy_votes = []
@@ -324,23 +377,117 @@ def get_votes_by_deputy_id(id):
 
     return jsonify(deputy_votes)
 
-@api.route('/get_proposition_vote_by_deputy_id/<id>')
-def get_proposition_vote_by_id(id):
-    proposition_votes = []
+@api.route('/update_propositions')
+def update_propositions():
+    # Request para api da câmara que retorna todos as proposições em tramitação nos uíltimos 30 dias por ordem de id 
+    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/proposicoes?itens=1000&ordem=ASC&ordenarPor=id")
+    all_propositions_r = r.json()
 
-    s_list = sorted(Parlamentary_vote.objects, reverse=False, key=attrgetter('date_time_vote'))
+    # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
+    all_propositions_json = []
+    for proposition in all_propositions_r["dados"]:
+        temp_id = int(proposition["id"])
+        if temp_id not in get_all_ids_DB(): 
+            r2 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{temp_id}")
+            all_propositions_json.append(r2.json())
 
-    for item in Parlamentary_vote.objects:
-        if int(item.id_deputy) == int(id):
-            need_add = True
-            for proposition in proposition_votes:
-                if str(proposition["proposition_id"]) in str(item.proposition_id):
-                    need_add = False
+    # Popula o banco de dados com as proposições que não existem nele
+    for proposition in all_propositions_json:
+        # Requisição para pegar informações do autor da proposicao
+        r3 = requests.get(proposition["dados"]["uriAutores"])
+        author_info_json = r3.json()
+        
+        # Lista que recebe a uri dos autores e pega o tipo do autor e seu id respectivamente
+        r3_json_splited = str(r3.json()["dados"][0]["uri"]).split("/")
 
-            if need_add:
-                proposition_votes.append(item.to_json())
+        author_info_json_type = r3_json_splited[5]
+        author_info_json_id = r3_json_splited[6]
 
-    return jsonify(proposition_votes)
+        if r3_json_splited[0] == "orgaos":
+            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{author_info_json_id}")
+            # JSON com as informações do órgao autor da proposição
+            author_url_r = author_info_json["dados"]["uri"]
+            author_type_r = author_info_json["dados"]["tipoOrgao"]
+            author_name_r = author_info_json["dados"]["nome"]
+        else:   
+            # JSON com as informações do deputado autor da proposicao
+            author_url_r = author_info_json["dados"][0]["uri"]
+            author_type_r = author_info_json["dados"][0]["tipo"]
+            author_name_r = author_info_json["dados"][0]["nome"]
 
+        # Requisicao para pegar a sigla do autor
+        if author_info_json_type != "orgaos":
+            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{author_info_json_id}")
+            author_uf_r = r4.json()["dados"]["ultimoStatus"]["siglaUf"]
+        else:
+            r4 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/orgaos/{author_info_json_id}")
+            author_uf_r = r4.json()["dados"]["sigla"]
 
+        # Faz uma requisição para buscar o tema da proposição, já esta vem em outra rota através de seu id
+        prop_id = proposition["dados"]["id"]
+        r5 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{prop_id}/temas")
+
+        if len(r5.json()["dados"]) <= 0:
+            proposition_theme = "Nao encontrado"
+        else:
+            proposition_theme = r5.json()["dados"][0]["tema"]
+
+        # Ajuste de formato de datas
+        apresentation_date = datetime.strptime(str(proposition["dados"]["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["dataApresentacao"]) > 5 else None
+        proposition_date = datetime.strptime(str(proposition["dados"]["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["statusProposicao"]["dataHora"]) > 5 else None
+        
+        new_proposition = Proposicao(
+            proposicao_id = proposition["dados"]["id"],
+            id_deputado_autor = author_info_json_id,
+            uri = proposition["dados"]["uri"],
+            descricao_tipo = proposition["dados"]["descricaoTipo"],
+            ementa = proposition["dados"]["ementa"],
+            ementa_detalhada = proposition["dados"]["ementaDetalhada"],
+            keywords = proposition["dados"]["keywords"],
+            data_apresentacao = apresentation_date,
+            urlAutor = author_url_r,
+            tipoAutor = author_type_r,
+            nome_autor = author_name_r,
+            sigla_UF_autor = author_uf_r,
+            tema_proposicao = proposition_theme,
+            sigla_orgao = proposition["dados"]["statusProposicao"]["siglaOrgao"], # Comeca aqui as informacoes do objeto de status
+            data_proposicao = proposition_date, 
+            descricao_situacao = proposition["dados"]["statusProposicao"]["descricaoSituacao"],
+            despacho = proposition["dados"]["statusProposicao"]["despacho"],
+            uri_relator = proposition["dados"]["statusProposicao"]["uriUltimoRelator"],
+            sigla_tipo = proposition["dados"]["siglaTipo"],
+            cod_tipo = proposition["dados"]["codTipo"],
+            numero = proposition["dados"]["numero"],
+            ano = proposition["dados"]["ano"]
+        ).save()
+
+    return "Proposições atualizadas com sucesso."
+
+def get_all_ids_DB():
+    all_ids = []
+    for item in Proposicao.objects:
+        all_ids.append(int(item.id))
     
+    return all_ids
+
+@api.route('/get_all_propositions')
+def get_all_proposition():
+    propositions = []
+
+    for prop in Proposicao.objects:
+        propositions.append(prop.to_json())
+
+    return jsonify(propositions)
+
+@api.route('/get_proposition_by_id/<id>')
+def get_proposition_by_id(id):
+    for prop in Proposicao.objects:
+        if int(prop.id) == int(id):
+            return jsonify(prop.to_json())
+
+    return "Erro. Proposicao nao encontrada"
+
+@api.route('/delete_propositions')
+def delete_all_propositions():
+    Proposicao.objects.all().delete()
+    return "Proposicoes apagadas com sucesso"
