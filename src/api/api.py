@@ -368,6 +368,61 @@ def expense(id):
         
     return jsonify(deputy_expenses)
 
+@api.route('/filtered_expenses/<id>', methods=['POST'])
+def filtered_expenses(id):
+    #recebemos um json do request com {nome, uf e partido}
+    requested_json = request.get_json()
+    supplier_name = str.lower(requested_json["razao_social"])
+    expenses_type = str.lower(requested_json["tipo_gasto"])
+
+    # Cria uma lista vazia e preenche com os objetos salvos de Deputy
+    all_deputy_expenses = []
+    for item in Expenses.objects:
+        if int(item.deputy_id) == int(id):
+            all_deputy_expenses.append(item)
+    
+    temp_list = []
+    
+    # Filtra os resultados da pesquisa
+    for expense in all_deputy_expenses:
+        if len(supplier_name) > 0:
+            #filtro pelo nome
+            if len(expenses_type) > 0:
+                #filtro pelo nome e pelo tipo
+                if str.lower(expense.expenses_type).find(expenses_type) != -1 and str.lower(expense.supplier_name).find(supplier_name) != -1:
+                    #encontrou o tipo
+                    temp_list.append(expense)
+                    continue
+                else:
+                    #filtrando pelo tipo e nao encontrou nada
+                    continue 
+            else:
+                #filtro somente pelo nome
+                if str.lower(expense.supplier_name).find(supplier_name) != -1:
+                    temp_list.append(expense)
+                    continue
+                else:
+                    continue
+        elif len(expenses_type) > 0:
+            #filtro somente pelo tipo
+            if str.lower(expense.expenses_type).find(expenses_type) != -1:
+                #encontrou o tipo
+                temp_list.append(expense)
+                continue
+            else:
+                #nao encontrou nada
+                continue 
+        else:
+            #nenhum filtro
+            temp_list.append(expense)
+            continue 
+
+    full_json = []
+    for expense in temp_list:
+        full_json.append(expense.to_json())
+
+    return jsonify(full_json)
+
 @api.route('/get_votes_by_deputy_id/<id>')
 def get_votes_by_deputy_id(id):
     deputy_votes = []
