@@ -1,6 +1,7 @@
 from mongoengine import *
 
 class Deputy(Document):
+    
     id = IntField(primary_key=True)
     name = StringField(required=True)
     photo_url = StringField()
@@ -45,6 +46,7 @@ class Deputy(Document):
             'twitter_id':self.twitter_id,
             'website':self.website
         }
+
 
 class Parlamentary_vote(Document):
     unique_id = StringField(primary_key=True)
