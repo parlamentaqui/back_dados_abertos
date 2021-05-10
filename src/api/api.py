@@ -546,3 +546,37 @@ def get_proposition_by_id(id):
 def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
+
+@api.route('/get_curiosities/<id>')
+def get_curiosities(id):
+    curiosity_json = {
+        'majority_vote':'',
+
+    }
+    #Qual é a maioria de votos desse deputado (Sim ou Não) e quantos % ?
+    curiosity_json["majority_vote"] = deputy_majority_vote(id)
+    #Gasta X% a mais que os outros deputados
+    #Gasta muito com X
+    #Parasita master do governo
+    return curiosity_json
+
+def deputy_majority_vote(id):
+    vote_yes = 0
+    vote_no = 0
+    value = ""
+
+    for item in Parlamentary_vote.objects:
+        if int(item.id_deputy) == int(id):
+            if "sim" in item.vote.lower():
+                vote_yes = vote_yes + 1
+            else:
+                vote_no = vote_no + 1
+
+    total_amount = vote_yes + vote_no
+
+    if vote_yes >= vote_no:
+        value = f"O deputado vota majoritáriamente Sim nos projetos: {'{0:.3g}'.format((vote_yes / total_amount) * 100.0)} %."
+    else:
+        value = f"O deputado vota majoritáriamente Não nos projetos: {'{0:.3g}'.format((vote_no / total_amount) * 100.0)} %."   
+
+    return value
