@@ -551,13 +551,19 @@ def delete_all_propositions():
 def get_curiosities(id):
     curiosity_json = {
         'majority_vote':'',
-
+        'term_in_office':'',
+        'oldest_deputy_rank':''
     }
     #Qual é a maioria de votos desse deputado (Sim ou Não) e quantos % ?
     curiosity_json["majority_vote"] = deputy_majority_vote(id)
     #Gasta X% a mais que os outros deputados
     #Gasta muito com X
     #Parasita master do governo
+    for item in Deputy.objects:
+        if int(item.id) == int(id):
+           curiosity_json["term_in_office"] =  deputy_term_of_office(item)
+           curiosity_json["oldest_deputy_rank"] = oldest_deputy_rank(item)
+
     return curiosity_json
 
 def deputy_majority_vote(id):
@@ -580,3 +586,16 @@ def deputy_majority_vote(id):
         value = f"O deputado vota majoritáriamente Não nos projetos: {'{0:.3g}'.format((vote_no / total_amount) * 100.0)} %."   
 
     return value
+
+def deputy_term_of_office(deputy):
+    years_in_office = int(datetime.now().year - deputy.initial_legislature_year)
+    return f"O deputado está em exercício há {years_in_office} anos."
+
+def oldest_deputy_rank(deputy):
+    s_list = sorted(Deputy.objects, reverse=False, key=attrgetter('initial_legislature_year'))
+    cont = 0
+    for item in s_list:
+        cont = cont + 1
+        if int(deputy.id) == int(item.id):
+            return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício."
+    
