@@ -38,7 +38,6 @@ def index():
 
     return jsonify(full_json)
 
-# Rota que retorna o resultado de uma busca de acordo com os filtros no corpo da requsisçao POST
 @api.route('/resultado', methods=['POST'])
 def resultado():
     #recebemos um json do request com {nome, uf e partido}
@@ -47,14 +46,9 @@ def resultado():
     uf_filter = str.lower(requested_json["uf"])
     party_filter = str.lower(requested_json["partido"])
 
-    # Cria uma lista vazia e preenche com os objetos salvos de Deputy
-    all_deputies = []
-    for item in Deputy.objects:
-        all_deputies.append(item)
+    all_deputies = list(Deputy.objects)
  
-    # Filtra os resultados da pesquisa
     for deputy in Deputy.objects:
-        # Variavel auxiliar que ira dizer se o deputado possui ou nao uma UF
         aux = False
         if deputy.federative_unity == None:
             aux = True
@@ -70,17 +64,12 @@ def resultado():
         else:
             all_deputies.remove(deputy)
 
-    # Ordena os deputados por nome
     sorted_list = sorted(all_deputies, key=attrgetter('name'))
 
-    # Cria um json com todos os deputados encontrados e já ordenados
     full_json = []
-
     for deputy in sorted_list:
-        temp_json = deputy.to_json()
-        full_json.append(temp_json)
+        full_json.append(deputy.to_json())
 
-    # Retorna no formato JSON a lista de objetos full_json
     return jsonify(full_json)
 
 @api.route('/deputies/<id>')
