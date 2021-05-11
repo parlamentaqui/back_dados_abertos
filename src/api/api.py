@@ -555,6 +555,7 @@ def get_curiosities(id):
         'oldest_deputy_rank':'',
         'deputy_greater_expense':'',
         'deputy_expense_percent':'',
+        'deputy_related_expense':''
     }
     #Qual é a maioria de votos desse deputado (Sim ou Não) e quantos % ?
     curiosity_json["majority_vote"] = deputy_majority_vote(id)
@@ -567,6 +568,7 @@ def get_curiosities(id):
         curiosity_json["oldest_deputy_rank"] = oldest_deputy_rank(deputy)
         curiosity_json["deputy_greater_expense"] = deputy_greater_expense(deputy)
         curiosity_json["deputy_expense_percent"] = deputy_expense_percent(deputy)
+        curiosity_json["deputy_related_expense"] = deputy_related_expense(deputy)
 
     return curiosity_json
 
@@ -623,3 +625,26 @@ def deputy_expense_percent(deputy):
     num = (greater_expense.liquid_value * 100/total)
 
     return f"Seu maior gasto foi {greater_expense.expenses_type.lower()} em {'{0:.3g}'.format(num)}% dos seus gastos"
+
+def deputy_related_expense(deputy):
+    deputy_total_expense = calculate_deputy_total_expense(deputy)
+
+    all_deputies_total_expenses = []
+    for item in Deputy.objects:
+        all_deputies_total_expenses.append(calculate_deputy_total_expense(item))
+    
+    average = 0
+    for item in all_deputies_total_expenses:
+        average = average + item
+    
+    average = int(average / len(all_deputies_total_expenses))
+
+    return f"Gastou R${deputy_total_expense},00 de uma média R${average},00 de seus colegas parlamentares."
+
+def calculate_deputy_total_expense(deputy):
+    deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
+    deputy_total_expense = 0
+    for item in deputy_expenses:
+        deputy_total_expense = deputy_total_expense + item.liquid_value
+
+    return deputy_total_expense
