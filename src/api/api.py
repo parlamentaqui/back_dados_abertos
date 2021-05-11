@@ -560,11 +560,11 @@ def get_curiosities(id):
     #Gasta X% a mais que os outros deputados
     #Gasta muito com X
     #Parasita master do governo
-    for item in Deputy.objects:
-        if int(item.id) == int(id):
-           curiosity_json["term_in_office"] =  deputy_term_of_office(item)
-           curiosity_json["oldest_deputy_rank"] = oldest_deputy_rank(item)
-           curiosity_json["deputy_greater_expense"] = deputy_greater_expense(item)
+    deputy = Deputy.objects(id=id).first()
+    if deputy:
+        curiosity_json["term_in_office"] =  deputy_term_of_office(deputy)
+        curiosity_json["oldest_deputy_rank"] = oldest_deputy_rank(deputy)
+        curiosity_json["deputy_greater_expense"] = deputy_greater_expense(deputy)
 
     return curiosity_json
 
@@ -572,13 +572,13 @@ def deputy_majority_vote(id):
     vote_yes = 0
     vote_no = 0
     value = ""
-
-    for item in Parlamentary_vote.objects:
-        if int(item.id_deputy) == int(id):
-            if "sim" in item.vote.lower():
-                vote_yes = vote_yes + 1
-            else:
-                vote_no = vote_no + 1
+    votes = Parlamentary_vote.objects(id_deputy=id)
+    
+    for item in votes:
+        if "sim" in item.vote.lower():
+            vote_yes = vote_yes + 1
+        else:
+            vote_no = vote_no + 1
 
     total_amount = vote_yes + vote_no
 
@@ -602,11 +602,7 @@ def oldest_deputy_rank(deputy):
             return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício."
 
 def deputy_greater_expense(deputy):
-    deputy_expenses = []
-    for expenses in Expenses.objects:
-        if int(deputy.id) == int(expenses.deputy_id):
-            deputy_expenses.append(expenses)
-   
+    deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
     exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('liquid_value'))
     greater_expense = exp_list[0]
 
