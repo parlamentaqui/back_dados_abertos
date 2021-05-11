@@ -553,7 +553,8 @@ def get_curiosities(id):
         'majority_vote':'',
         'term_in_office':'',
         'oldest_deputy_rank':'',
-        'deputy_greater_expense':''
+        'deputy_greater_expense':'',
+        'deputy_expense_percent':'',
     }
     #Qual é a maioria de votos desse deputado (Sim ou Não) e quantos % ?
     curiosity_json["majority_vote"] = deputy_majority_vote(id)
@@ -565,6 +566,7 @@ def get_curiosities(id):
         curiosity_json["term_in_office"] =  deputy_term_of_office(deputy)
         curiosity_json["oldest_deputy_rank"] = oldest_deputy_rank(deputy)
         curiosity_json["deputy_greater_expense"] = deputy_greater_expense(deputy)
+        curiosity_json["deputy_expense_percent"] = deputy_expense_percent(deputy)
 
     return curiosity_json
 
@@ -607,3 +609,17 @@ def deputy_greater_expense(deputy):
     greater_expense = exp_list[0]
 
     return f"Seu maior gasto foi R${greater_expense.liquid_value},00 com {greater_expense.expenses_type.lower()} em {greater_expense.supplier_name}."
+
+def deputy_expense_percent(deputy):
+    deputy_expenses = []
+    total = 0
+    for expenses in Expenses.objects:
+        if int(deputy.id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses)
+            total = total + expenses.liquid_value
+   
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('liquid_value'))
+    greater_expense = exp_list[0]
+    num = (greater_expense.liquid_value * 100/total)
+
+    return f"Seu maior gasto foi {greater_expense.expenses_type.lower()} em {'{0:.3g}'.format(num)}% dos seus gastos"
