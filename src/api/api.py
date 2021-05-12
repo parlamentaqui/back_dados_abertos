@@ -579,9 +579,9 @@ def get_total_expenses(id):
     for expenses in Expenses.objects:
         if int(id) == int(expenses.deputy_id):
             deputy_expenses.append(expenses.to_json())
-            total = total + expenses.liquid_value
+            total = total + expenses.document_value
    
-    return f"{deputy_expenses} e {total}"
+    return jsonify(total)
 
 def deputy_majority_vote(id):
     vote_yes = 0
@@ -618,10 +618,10 @@ def oldest_deputy_rank(deputy):
 
 def deputy_greater_expense(deputy):
     deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
-    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('liquid_value'))
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
     greater_expense = exp_list[0]
 
-    return f"Seu maior gasto foi R${greater_expense.liquid_value},00 com {greater_expense.expenses_type.lower()} em {greater_expense.supplier_name}."
+    return f"Seu maior gasto foi R${greater_expense.document_value},00 com {greater_expense.expenses_type.lower()} em {greater_expense.supplier_name}."
 
 def deputy_expense_percent(deputy):
     deputy_expenses = []
@@ -629,11 +629,11 @@ def deputy_expense_percent(deputy):
     for expenses in Expenses.objects:
         if int(deputy.id) == int(expenses.deputy_id):
             deputy_expenses.append(expenses)
-            total = total + expenses.liquid_value
+            total = total + expenses.document_value
    
-    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('liquid_value'))
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
     greater_expense = exp_list[0]
-    num = (greater_expense.liquid_value * 100/total)
+    num = (greater_expense.document_value * 100/total)
 
     return f"Seu maior gasto foi {greater_expense.expenses_type.lower()} em {'{0:.3g}'.format(num)}% dos seus gastos"
 
@@ -656,6 +656,6 @@ def calculate_deputy_total_expense(deputy):
     deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
     deputy_total_expense = 0
     for item in deputy_expenses:
-        deputy_total_expense = deputy_total_expense + item.liquid_value
+        deputy_total_expense = deputy_total_expense + item.document_value
 
     return deputy_total_expense
