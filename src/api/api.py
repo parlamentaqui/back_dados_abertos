@@ -491,3 +491,25 @@ def get_proposition_by_id(id):
 def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
+
+@api.route('/project_images')
+def project_images():
+    r = requests.get(f'https://pixabay.com/api/?key=21577615-05bbece0693aa32356162dab2&q=administra%C3%A7%C3%A3o&per_page=3')
+    project_images_basic_json = r.json()
+
+    #criar uma lista com todos os deputados
+    all_images = []
+
+    #Iterar por todos os deputados que se encontram no basic json
+    for item in filtered_list:
+        all_images.append(create_image(item))  
+
+    return jsonify(all_images)
+
+@api.route('/get_proposition_by_year/<year>')
+def get_proposition_by_year(year):
+    for prop in Proposicao.objects:
+        if int(prop.ano) == int(ano):
+            return jsonify(prop.to_json())
+
+    return "Erro. Proposicao nao encontrada"
