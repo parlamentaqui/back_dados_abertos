@@ -659,3 +659,41 @@ def calculate_deputy_total_expense(deputy):
         deputy_total_expense = deputy_total_expense + item.document_value
 
     return deputy_total_expense
+
+@api.route('/expenses_by_type/<id>')
+def expenses_by_type(id):
+    list_expenses_type = []
+    json = {}
+    for expenses in Expenses.objects:
+        if str(expenses.expenses_type) not in list_expenses_type:
+            list_expenses_type.append(str(expenses.expenses_type))
+            json[str(expenses.expenses_type)] = 0
+
+    deputy_expenses = Expenses.objects(deputy_id=id).all()
+    
+    if not deputy_expenses:
+        return {}
+    
+    for item in deputy_expenses:
+        temp = json[str(item.expenses_type)]
+        temp = temp + item.document_value
+        json[str(item.expenses_type)] = temp
+
+    final_json = {}
+    final_json["manuntencao"] = json["MANUTEN\u00c7\u00c3O DE ESCRIT\u00d3RIO DE APOIO \u00c0 ATIVIDADE PARLAMENTAR"]
+    final_json["consultorias"] = json["CONSULTORIAS, PESQUISAS E TRABALHOS T\u00c9CNICOS."]
+    final_json["assinatura"] = json["ASSINATURA DE PUBLICA\u00c7\u00d5ES"]
+    final_json["divulgacao"] = json["DIVULGA\u00c7\u00c3O DA ATIVIDADE PARLAMENTAR."]
+    final_json["fornecimento"] = json["FORNECIMENTO DE ALIMENTA\u00c7\u00c3O DO PARLAMENTAR"]
+    final_json["hospedagem"] = json["HOSPEDAGEM ,EXCETO DO PARLAMENTAR NO DISTRITO FEDERAL."]
+    final_json["loc_aeronaves"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE AERONAVES"]
+    final_json["loc_embarcacoes"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE EMBARCA\u00c7\u00d5ES"]
+    final_json["loc_veiculos"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE VE\u00cdCULOS AUTOMOTORES"]
+    final_json["passagem_reembolso"] = json["PASSAGEM A\u00c9REA - REEMBOLSO"]
+    final_json["passagem_rpa"] = json["PASSAGEM A\u00c9REA - RPA"]
+    final_json["servicos_seguranca"] = json["SERVI\u00c7O DE SEGURAN\u00c7A PRESTADO POR EMPRESA ESPECIALIZADA."]
+    final_json["servico_estacionamento"] = json["SERVI\u00c7O DE T\u00c1XI, PED\u00c1GIO E ESTACIONAMENTO"]
+    final_json["servicos_postais"] = json["SERVI\u00c7OS POSTAIS"]
+    final_json["telefonia"] = json["TELEFONIA"]
+
+    return final_json
