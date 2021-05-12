@@ -572,6 +572,17 @@ def get_curiosities(id):
 
     return curiosity_json
 
+@api.route('/get_total_expenses/<id>')
+def get_total_expenses(id):
+    deputy_expenses = []
+    total = 0
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses.to_json())
+            total = total + expenses.liquid_value
+   
+    return f"{deputy_expenses} e {total}"
+
 def deputy_majority_vote(id):
     vote_yes = 0
     vote_no = 0
