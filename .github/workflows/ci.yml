@@ -4,9 +4,9 @@ on:
   pull_request:
     branches:
       - main
-
+      - devel
 jobs:
-  container_name:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - name: Build etl_camara
