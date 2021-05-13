@@ -537,6 +537,17 @@ def get_curiosities(id):
 
     return curiosity_json
 
+@api.route('/get_total_expenses/<id>')
+def get_total_expenses(id):
+    deputy_expenses = []
+    total = 0
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses.to_json())
+            total = total + expenses.document_value
+   
+    return jsonify(total)
+
 def deputy_majority_vote(id):
     vote_yes = 0
     vote_no = 0
@@ -572,10 +583,10 @@ def oldest_deputy_rank(deputy):
 
 def deputy_greater_expense(deputy):
     deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
-    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('liquid_value'))
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
     greater_expense = exp_list[0]
 
-    return f"Seu maior gasto foi R${greater_expense.liquid_value},00 com {greater_expense.expenses_type.lower()} em {greater_expense.supplier_name}."
+    return f"Seu maior gasto foi R${greater_expense.document_value},00 com {greater_expense.expenses_type.lower()} em {greater_expense.supplier_name}."
 
 def deputy_expense_percent(deputy):
     deputy_expenses = []
@@ -583,11 +594,11 @@ def deputy_expense_percent(deputy):
     for expenses in Expenses.objects:
         if int(deputy.id) == int(expenses.deputy_id):
             deputy_expenses.append(expenses)
-            total = total + expenses.liquid_value
+            total = total + expenses.document_value
    
-    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('liquid_value'))
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
     greater_expense = exp_list[0]
-    num = (greater_expense.liquid_value * 100/total)
+    num = (greater_expense.document_value * 100/total)
 
     return f"Seu maior gasto foi {greater_expense.expenses_type.lower()} em {'{0:.3g}'.format(num)}% dos seus gastos"
 
@@ -610,6 +621,44 @@ def calculate_deputy_total_expense(deputy):
     deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
     deputy_total_expense = 0
     for item in deputy_expenses:
-        deputy_total_expense = deputy_total_expense + item.liquid_value
+        deputy_total_expense = deputy_total_expense + item.document_value
 
     return deputy_total_expense
+
+@api.route('/expenses_by_type/<id>')
+def expenses_by_type(id):
+    list_expenses_type = []
+    json = {}
+    for expenses in Expenses.objects:
+        if str(expenses.expenses_type) not in list_expenses_type:
+            list_expenses_type.append(str(expenses.expenses_type))
+            json[str(expenses.expenses_type)] = 0
+
+    deputy_expenses = Expenses.objects(deputy_id=id).all()
+    
+    if not deputy_expenses:
+        return {}
+    
+    for item in deputy_expenses:
+        temp = json[str(item.expenses_type)]
+        temp = temp + item.document_value
+        json[str(item.expenses_type)] = temp
+
+    final_json = {}
+    final_json["manuntencao"] = json["MANUTEN\u00c7\u00c3O DE ESCRIT\u00d3RIO DE APOIO \u00c0 ATIVIDADE PARLAMENTAR"]
+    final_json["consultorias"] = json["CONSULTORIAS, PESQUISAS E TRABALHOS T\u00c9CNICOS."]
+    final_json["assinatura"] = json["ASSINATURA DE PUBLICA\u00c7\u00d5ES"]
+    final_json["divulgacao"] = json["DIVULGA\u00c7\u00c3O DA ATIVIDADE PARLAMENTAR."]
+    final_json["fornecimento"] = json["FORNECIMENTO DE ALIMENTA\u00c7\u00c3O DO PARLAMENTAR"]
+    final_json["hospedagem"] = json["HOSPEDAGEM ,EXCETO DO PARLAMENTAR NO DISTRITO FEDERAL."]
+    final_json["loc_aeronaves"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE AERONAVES"]
+    final_json["loc_embarcacoes"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE EMBARCA\u00c7\u00d5ES"]
+    final_json["loc_veiculos"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE VE\u00cdCULOS AUTOMOTORES"]
+    final_json["passagem_reembolso"] = json["PASSAGEM A\u00c9REA - REEMBOLSO"]
+    final_json["passagem_rpa"] = json["PASSAGEM A\u00c9REA - RPA"]
+    final_json["servicos_seguranca"] = json["SERVI\u00c7O DE SEGURAN\u00c7A PRESTADO POR EMPRESA ESPECIALIZADA."]
+    final_json["servico_estacionamento"] = json["SERVI\u00c7O DE T\u00c1XI, PED\u00c1GIO E ESTACIONAMENTO"]
+    final_json["servicos_postais"] = json["SERVI\u00c7OS POSTAIS"]
+    final_json["telefonia"] = json["TELEFONIA"]
+
+    return final_json
