@@ -104,12 +104,12 @@ def get_expenses():
 @api.route('/expenses/<id>')
 def expense(id):
     deputy_expenses = []
-    expense = Expenses.objects(deputy_id=id).first()
+    expense = Expenses.objects(deputy_id=id).all()
     
-    if expense:
-        return expense.to_json()
+    for item in expense:
+        deputy_expenses.append(item.to_json())
         
-    return {}
+    return jsonify(deputy_expenses)
 
 @api.route('/filtered_expenses/<id>', methods=['POST'])
 def filtered_expenses(id):
@@ -410,7 +410,8 @@ def delete_expenses():
     Expenses.objects.all().delete() 
     return "All expenses in database was deleted! Use api/update_expenses to update database."
 
-#ROTAS DB - PROPOIÇÕES
+
+#ROTAS DB - PROPOSIÇÕES
 @api.route('/update_propositions')
 def update_propositions():
     # Request para api da câmara que retorna todos as proposições em tramitação nos uíltimos 30 dias por ordem de id 

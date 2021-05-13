@@ -1,7 +1,6 @@
 from mongoengine import *
 
 class Deputy(Document):
-    
     id = IntField(primary_key=True)
     name = StringField(required=True)
     photo_url = StringField()
