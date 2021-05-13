@@ -1,7 +1,6 @@
 from mongoengine import *
 
 class Deputy(Document):
-    
     id = IntField(primary_key=True)
     name = StringField(required=True)
     photo_url = StringField()
@@ -22,6 +21,12 @@ class Deputy(Document):
     facebook_username = StringField()
     twitter_id = StringField()
     website = StringField()
+    office_number = StringField()
+    office_name = StringField()
+    office_premise = StringField()
+    office_floor = StringField()
+    office_phone = StringField()
+    office_email = StringField()
 
     def to_json(self):
         return{
@@ -44,7 +49,13 @@ class Deputy(Document):
             'twitter_username':self.twitter_username,
             'facebook_username':self.facebook_username,
             'twitter_id':self.twitter_id,
-            'website':self.website
+            'website':self.website,
+            'office_number':self.office_number,
+            'office_name':self.office_name,
+            'office_premise':self.office_premise,
+            'office_floor':self.office_floor,
+            'office_phone':self.office_phone,
+            'office_email':self.office_email
         }
 
 
