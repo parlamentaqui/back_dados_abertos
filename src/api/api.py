@@ -8,6 +8,16 @@ from operator import attrgetter
 api = Blueprint('api', __name__, url_prefix='/api')
 
 #Getters
+@api.route('/deputies-home')
+def deputies_home():
+    full_json = []
+    sorted_list = sorted(Deputy.objects, reverse = True, key = lambda dep: datetime.strptime(str(dep["last_activity_date"]), "%Y-%m-%d %H:%M:%S") if len(str(dep["last_activity_date"])) > 5 else datetime.strptime("1999-12-12", "%Y-%m-%d"))
+
+    for deputy in sorted_list[0:6]:
+        full_json.append(deputy.to_json())
+
+    return jsonify(full_json)
+
 @api.route('/deputies')
 def index():
     full_json = []
