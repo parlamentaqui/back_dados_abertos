@@ -510,6 +510,8 @@ def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
 
+
+#CURIOSIDADES
 @api.route('/get_curiosities/<id>')
 def get_curiosities(id):
     curiosity_json = {
