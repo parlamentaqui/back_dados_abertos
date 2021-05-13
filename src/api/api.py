@@ -172,6 +172,14 @@ def get_votes_by_deputy_id(id):
 
     return jsonify(json_list)
 
+@api.route('/get_proposition_by_year/<year>')
+def get_proposition_by_year(year):
+    proposition_list = []
+    for prop in Proposicao.objects:
+        if int(prop.data_proposicao.year) == int(year):
+            proposition_list.append(prop.to_json())
+    return jsonify(proposition_list)
+
 @api.route('/get_all_propositions')
 def get_all_proposition():
     propositions = []
@@ -470,6 +478,25 @@ def update_propositions():
         apresentation_date = datetime.strptime(str(proposition["dados"]["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["dataApresentacao"]) > 5 else None
         proposition_date = datetime.strptime(str(proposition["dados"]["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["statusProposicao"]["dataHora"]) > 5 else None
         
+        # Requisição das imagens
+        image_theme = proposition_theme
+        image_theme = image_theme.replace(" ", "+")
+        image_theme = image_theme.replace("+e+", " ")
+        image_theme = image_theme.split(' ')[0]
+        # return image_theme
+        r_image = requests.get(f"https://pixabay.com/api/?key=21577615-05bbece0693aa32356162dab2&q={image_theme}&per_page=30")
+        all_images_json = r_image.json()["hits"]
+        temp_image_url = None
+        temp_image_id = None
+        if all_images_json:
+            for possible_image in all_images_json:
+                old_image = Proposicao.objects(image_id = str(possible_image["id"])).first()
+                if old_image: 
+                    continue
+                temp_image_url = possible_image["webformatURL"]
+                temp_image_id = str(possible_image["id"])
+                break
+
         new_proposition = Proposicao(
             proposicao_id = proposition["dados"]["id"],
             id_deputado_autor = author_info_json_id,
@@ -492,7 +519,9 @@ def update_propositions():
             sigla_tipo = proposition["dados"]["siglaTipo"],
             cod_tipo = proposition["dados"]["codTipo"],
             numero = proposition["dados"]["numero"],
-            ano = proposition["dados"]["ano"]
+            ano = proposition["dados"]["ano"],
+            image_url = temp_image_url,
+            image_id = temp_image_id
         ).save()
 
     return "Proposições atualizadas com sucesso."
@@ -508,25 +537,3 @@ def get_all_ids_DB():
 def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
-
-@api.route('/project_images')
-def project_images():
-    r = requests.get(f'https://pixabay.com/api/?key=21577615-05bbece0693aa32356162dab2&q=administra%C3%A7%C3%A3o&per_page=3')
-    project_images_basic_json = r.json()
-
-    #criar uma lista com todos os deputados
-    all_images = []
-
-    #Iterar por todos os deputados que se encontram no basic json
-    for item in filtered_list:
-        all_images.append(create_image(item))  
-
-    return jsonify(all_images)
-
-@api.route('/get_proposition_by_year/<year>')
-def get_proposition_by_year(year):
-    for prop in Proposicao.objects:
-        if int(prop.ano) == int(ano):
-            return jsonify(prop.to_json())
-
-    return "Erro. Proposicao nao encontrada"

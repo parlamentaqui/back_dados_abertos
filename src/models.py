@@ -117,6 +117,8 @@ class Proposicao(Document):
     cod_tipo = IntField()
     numero = IntField()
     ano = IntField()
+    image_url = StringField()
+    image_id = StringField()
         
     def to_json(self):
         return{
@@ -140,7 +142,9 @@ class Proposicao(Document):
             'sigla_tipo' : self.sigla_tipo,
             'cod_tipo' : self.cod_tipo,
             'numero' : self.numero,
-            'ano' : self.ano
+            'ano' : self.ano,
+            'image_url' : self.image_url,
+            'image_id' : self.image_id
         }
 
 class Expenses(Document):
