@@ -201,6 +201,17 @@ def get_proposition_by_id(id):
     return {}
 
 
+@api.route('/deputy_by_name', methods=['POST'])
+def deputy_by_name():
+    requested_json = request.get_json()
+    name_filter = requested_json["nome"]
+    deputy = Deputy.objects(name=name_filter).first()
+    
+    if deputy:
+        return deputy.to_json()
+
+    return {}
+
 #ROTAS DB - DEPUTADOS
 @api.route('/remover_deputados')
 def apagar_deputados():
