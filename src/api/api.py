@@ -686,28 +686,3 @@ def get_total_expenses(id):
             total = total + expenses.document_value
    
     return jsonify(total)
-
-@api.route('/teste')
-def teste():
-    for item in Deputy.objects:
-        if not get_curiosities(item.id):
-            return f"O fdp {item.id} nao tem curiosidade"
-
-    return "Todo mundo certin"
-
-@api.route('/calculate_accordingly_vote_average')
-def calculate_accordingly_vote_average():
-    total_votes = 0
-    temp_accordingly_vote = 0
-
-    for item in Deputy.objects:
-        all_votes_list = list(Parlamentary_vote.objects(id_deputy=item.id).all())
-        if not all_votes_list:
-            continue
-
-        for item in all_votes_list:
-            total_votes = total_votes + 1
-            if item.voted_accordingly in "Sim":
-                temp_accordingly_vote = temp_accordingly_vote + 1
-
-    return f"Média de votos de acordo é: {'{0:.3g}'.format((temp_accordingly_vote / total_votes) * 100.0)}% --------------- Total de votos de acordo: {temp_accordingly_vote}  ------------- Total de votos lidos no banco: {total_votes}"
