@@ -200,6 +200,16 @@ def get_proposition_by_id(id):
 
     return {}
 
+@api.route('/get_propositions_by_author_id/<id>')
+def get_propositions_by_author_id(id):
+    props_by_author = []
+
+    for proposition in Proposicao.objects:
+        if int(proposition.id_deputado_autor) == int(id):
+            props_by_author.append(proposition.to_json())
+
+    return jsonify(props_by_author)
+
 
 #ROTAS DB - DEPUTADOS
 @api.route('/remover_deputados')
