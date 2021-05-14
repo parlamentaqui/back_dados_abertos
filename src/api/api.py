@@ -184,7 +184,7 @@ def get_proposition_by_year(year):
 def get_all_proposition():
     propositions = []
 
-    for prop in Proposicao.objects:
+    for prop in Proposicao.objects: 
         propositions.append(prop.to_json())
 
     return jsonify(propositions)
