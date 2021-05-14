@@ -525,63 +525,34 @@ def delete_all_propositions():
 @api.route('/get_curiosities/<id>')
 def get_curiosities(id):
     curiosity_json = {
-        'majority_vote':'',
-        'term_in_office':'',
-        'oldest_deputy_rank':'',
-        'deputy_greater_expense':'',
-        'deputy_expense_percent':'',
-        'deputy_related_expense':''
+        "curiosity":""
     }
-    #Qual é a maioria de votos desse deputado (Sim ou Não) e quantos % ?
-    curiosity_json["majority_vote"] = deputy_majority_vote(id)
-    #Gasta X% a mais que os outros deputados
-    #Gasta muito com X
-    #Parasita master do governo
-    deputy = Deputy.objects(id=id).first()
-    if deputy:
-        curiosity_json["term_in_office"] =  deputy_term_of_office(deputy)
-        curiosity_json["oldest_deputy_rank"] = oldest_deputy_rank(deputy)
-        curiosity_json["deputy_greater_expense"] = deputy_greater_expense(deputy)
-        curiosity_json["deputy_expense_percent"] = deputy_expense_percent(deputy)
-        curiosity_json["deputy_related_expense"] = deputy_related_expense(deputy)
-
-    return curiosity_json
-
-@api.route('/get_total_expenses/<id>')
-def get_total_expenses(id):
-    deputy_expenses = []
-    total = 0
-    for expenses in Expenses.objects:
-        if int(id) == int(expenses.deputy_id):
-            deputy_expenses.append(expenses.to_json())
-            total = total + expenses.document_value
-   
-    return jsonify(total)
-
-def deputy_majority_vote(id):
-    vote_yes = 0
-    vote_no = 0
-    value = ""
-    votes = Parlamentary_vote.objects(id_deputy=id)
     
-    for item in votes:
-        if "sim" in item.vote.lower():
-            vote_yes = vote_yes + 1
+    curiosity = None
+    deputy = Deputy.objects(id=id).first()
+
+    if deputy:
+
+        if oldest_deputy_rank(deputy):
+            curiosity = oldest_deputy_rank(deputy)
+
+        elif deputy_related_expense(deputy):
+            curiosity = deputy_related_expense(deputy)
+
+        elif is_deputy_allign(deputy.id):
+            curiosity = is_deputy_allign(deputy.id)
+
+        elif deputy_term_of_office(deputy):
+            curiosity = deputy_term_of_office(deputy)
+        
         else:
-            vote_no = vote_no + 1
+            curiosity = deputy_expense_percent(deputy)
 
-    total_amount = vote_yes + vote_no
+    if not curiosity:
+        return {}
 
-    if vote_yes >= vote_no:
-        value = f"O deputado vota majoritáriamente Sim nos projetos: {'{0:.3g}'.format((vote_yes / total_amount) * 100.0)} %."
-    else:
-        value = f"O deputado vota majoritáriamente Não nos projetos: {'{0:.3g}'.format((vote_no / total_amount) * 100.0)} %."   
-
-    return value
-
-def deputy_term_of_office(deputy):
-    years_in_office = int(datetime.now().year - deputy.initial_legislature_year)
-    return f"O deputado está em exercício há {years_in_office} anos."
+    curiosity_json["curiosity"] = curiosity
+    return curiosity_json
 
 def oldest_deputy_rank(deputy):
     s_list = sorted(Deputy.objects, reverse=False, key=attrgetter('initial_legislature_year'))
@@ -589,28 +560,12 @@ def oldest_deputy_rank(deputy):
     for item in s_list:
         cont = cont + 1
         if int(deputy.id) == int(item.id):
-            return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício."
+            break
+    
+    if cont > 50:
+        return None
 
-def deputy_greater_expense(deputy):
-    deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
-    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
-    greater_expense = exp_list[0]
-
-    return f"Seu maior gasto foi R${greater_expense.document_value},00 com {greater_expense.expenses_type.lower()} em {greater_expense.supplier_name}."
-
-def deputy_expense_percent(deputy):
-    deputy_expenses = []
-    total = 0
-    for expenses in Expenses.objects:
-        if int(deputy.id) == int(expenses.deputy_id):
-            deputy_expenses.append(expenses)
-            total = total + expenses.document_value
-   
-    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
-    greater_expense = exp_list[0]
-    num = (greater_expense.document_value * 100/total)
-
-    return f"Seu maior gasto foi {greater_expense.expenses_type.lower()} em {'{0:.3g}'.format(num)}% dos seus gastos"
+    return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício com o tempo de: {cont} anos."
 
 def deputy_related_expense(deputy):
     deputy_total_expense = calculate_deputy_total_expense(deputy)
@@ -624,8 +579,58 @@ def deputy_related_expense(deputy):
         average = average + item
     
     average = int(average / len(all_deputies_total_expenses))
+    expense_percent = ((deputy_total_expense / average) * 100.0) - 100.0
+    expense_percent_string = float('{0:.3g}'.format(expense_percent))
+    if expense_percent > 0 and abs(expense_percent) > 10:
+        return f"Gastou {expense_percent_string}% a mais que seus colegas parlamentares."
+    elif expense_percent < 0 and abs(expense_percent) > 20:
+        f"Gastou {abs(expense_percent_string)}% a menos que seus colegas parlamentares."
+    else:
+        return None
 
-    return f"Gastou R${deputy_total_expense},00 de uma média R${average},00 de seus colegas parlamentares."
+def is_deputy_allign(id):
+    all_votes_list = list(Parlamentary_vote.objects(id_deputy=id).all())
+    if not all_votes_list:
+        return None
+    
+    total_votes = 0
+    accordingly_vote = 0
+
+    for item in all_votes_list:
+        total_votes = total_votes + 1
+        if item.voted_accordingly in "Sim":
+            accordingly_vote = accordingly_vote + 1
+
+    percent = (accordingly_vote / total_votes) * 100.0
+    if percent > 85 or percent < 60:
+        return  f"O deputado é {'{0:.3g}'.format(percent)}% alinhado com seu partido."
+
+    return None
+
+def deputy_term_of_office(deputy):
+    years_in_office = int(datetime.now().year - deputy.initial_legislature_year)
+    if years_in_office < 8:
+        return None
+
+    return f"O deputado está em exercício há {years_in_office} anos."
+
+def deputy_expense_percent(deputy):
+    deputy_expenses = []
+    total = 0
+    for expenses in Expenses.objects:
+        if int(deputy.id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses)
+            total = total + expenses.document_value
+   
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
+    if not exp_list:
+        return "Esse deputado não declarou nenhuma despesa."
+
+    greater_expense = exp_list[0]
+    num = (greater_expense.document_value / total) * 100
+    category = str(greater_expense.expenses_type.lower())
+    category = category.replace(".","")
+    return f"A categoria '{category}' ocupou {'{0:.3g}'.format(num)}% dos seus gastos"
 
 def calculate_deputy_total_expense(deputy):
     deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
@@ -672,3 +677,37 @@ def expenses_by_type(id):
     final_json["telefonia"] = json["TELEFONIA"]
 
     return final_json
+
+@api.route('/get_total_expenses/<id>')
+def get_total_expenses(id):
+    total = 0
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            total = total + expenses.document_value
+   
+    return jsonify(total)
+
+@api.route('/teste')
+def teste():
+    for item in Deputy.objects:
+        if not get_curiosities(item.id):
+            return f"O fdp {item.id} nao tem curiosidade"
+
+    return "Todo mundo certin"
+
+@api.route('/calculate_accordingly_vote_average')
+def calculate_accordingly_vote_average():
+    total_votes = 0
+    temp_accordingly_vote = 0
+
+    for item in Deputy.objects:
+        all_votes_list = list(Parlamentary_vote.objects(id_deputy=item.id).all())
+        if not all_votes_list:
+            continue
+
+        for item in all_votes_list:
+            total_votes = total_votes + 1
+            if item.voted_accordingly in "Sim":
+                temp_accordingly_vote = temp_accordingly_vote + 1
+
+    return f"Média de votos de acordo é: {'{0:.3g}'.format((temp_accordingly_vote / total_votes) * 100.0)}% --------------- Total de votos de acordo: {temp_accordingly_vote}  ------------- Total de votos lidos no banco: {total_votes}"
