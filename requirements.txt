@@ -19,5 +19,4 @@ requests==2.25.1
 urllib3==1.26.4
 mock==3.0.5
 requests_mock
-pytest
-pytest-flask
+unittest2
