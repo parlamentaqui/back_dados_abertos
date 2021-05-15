@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
+import sys
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
@@ -176,7 +177,7 @@ def get_votes_by_deputy_id(id):
 def get_proposition_by_year(year):
     proposition_list = []
     for prop in Proposicao.objects:
-        if int(prop.data_proposicao.year) == int(year):
+        if int(prop.ano) == int(year):
             proposition_list.append(prop.to_json())
     return jsonify(proposition_list)
 
@@ -427,6 +428,7 @@ def update_propositions():
 
     # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
     all_propositions_json = []
+    all_images = []
     for proposition in all_propositions_r["dados"]:
         temp_id = int(proposition["id"])
         if temp_id not in get_all_ids_DB(): 
@@ -481,21 +483,20 @@ def update_propositions():
         # Requisição das imagens
         image_theme = proposition_theme
         image_theme = image_theme.replace(" ", "+")
-        image_theme = image_theme.replace("+e+", " ")
+        image_theme = image_theme.replace("+e+", "+")
+        image_theme = image_theme.replace(",", "")
         image_theme = image_theme.split(' ')[0]
         # return image_theme
-        r_image = requests.get(f"https://pixabay.com/api/?key=21577615-05bbece0693aa32356162dab2&q={image_theme}&per_page=30")
-        all_images_json = r_image.json()["hits"]
-        temp_image_url = None
-        temp_image_id = None
-        if all_images_json:
-            for possible_image in all_images_json:
-                old_image = Proposicao.objects(image_id = str(possible_image["id"])).first()
-                if old_image: 
-                    continue
-                temp_image_url = possible_image["webformatURL"]
-                temp_image_id = str(possible_image["id"])
-                break
+        if not any(element["tema"] == image_theme for element in all_images): 
+            r_image = requests.get(f"https://api.pexels.com/v1/search?query={image_theme}&per_page=1",headers={'Authorization' : '563492ad6f91700001000001462277c399ea46d68895f5edcfa3260b'}).json()
+            image_dict = {
+                "tema": image_theme, 
+                "image":r_image["photos"][0]["src"]["medium"] if r_image["total_results"]!=0 else None, 
+                "id":r_image["photos"][0]["id"] if r_image["total_results"]!=0 else None
+            }
+            all_images.append(image_dict)
+        else:
+            image_dict = next(item for item in all_images if item["tema"] == image_theme) 
 
         new_proposition = Proposicao(
             proposicao_id = proposition["dados"]["id"],
@@ -520,8 +521,8 @@ def update_propositions():
             cod_tipo = proposition["dados"]["codTipo"],
             numero = proposition["dados"]["numero"],
             ano = proposition["dados"]["ano"],
-            image_url = temp_image_url,
-            image_id = temp_image_id
+            image_url = image_dict["image"],
+            image_id = str(image_dict["id"])
         ).save()
 
     return "Proposições atualizadas com sucesso."
