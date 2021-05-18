@@ -10,4 +10,4 @@ rebuild:
 	docker-compose build
 
 test:
-	sudo docker-compose run prlmntq_etl_camara python  src/test.py
+	sudo docker run prlmntq_etl_camara sh -c 'python3  src/test.py'
