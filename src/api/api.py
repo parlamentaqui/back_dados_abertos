@@ -519,3 +519,170 @@ def get_all_ids_DB():
 def delete_all_propositions():
     Proposicao.objects.all().delete()
     return "Proposicoes apagadas com sucesso"
+
+
+#CURIOSIDADES
+@api.route('/get_curiosities/<id>')
+def get_curiosities(id):
+    curiosity_json = {
+        "curiosity":""
+    }
+    
+    curiosity = None
+    deputy = Deputy.objects(id=id).first()
+
+    if deputy:
+
+        if oldest_deputy_rank(deputy):
+            curiosity = oldest_deputy_rank(deputy)
+
+        elif deputy_related_expense(deputy):
+            curiosity = deputy_related_expense(deputy)
+
+        elif is_deputy_allign(deputy.id):
+            curiosity = is_deputy_allign(deputy.id)
+
+        elif deputy_term_of_office(deputy):
+            curiosity = deputy_term_of_office(deputy)
+        
+        else:
+            curiosity = deputy_expense_percent(deputy)
+
+    if not curiosity:
+        return {}
+
+    curiosity_json["curiosity"] = curiosity
+    return curiosity_json
+
+def oldest_deputy_rank(deputy):
+    s_list = sorted(Deputy.objects, reverse=False, key=attrgetter('initial_legislature_year'))
+    cont = 0
+    for item in s_list:
+        cont = cont + 1
+        if int(deputy.id) == int(item.id):
+            break
+    
+    if cont > 50:
+        return None
+
+    return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício com o tempo de: {cont} anos."
+
+def deputy_related_expense(deputy):
+    deputy_total_expense = calculate_deputy_total_expense(deputy)
+
+    all_deputies_total_expenses = []
+    for item in Deputy.objects:
+        all_deputies_total_expenses.append(calculate_deputy_total_expense(item))
+    
+    average = 0
+    for item in all_deputies_total_expenses:
+        average = average + item
+    
+    average = int(average / len(all_deputies_total_expenses))
+    expense_percent = ((deputy_total_expense / average) * 100.0) - 100.0
+    expense_percent_string = float('{0:.3g}'.format(expense_percent))
+    if expense_percent > 0 and abs(expense_percent) > 10:
+        return f"Gastou {expense_percent_string}% a mais que seus colegas parlamentares."
+    elif expense_percent < 0 and abs(expense_percent) > 20:
+        f"Gastou {abs(expense_percent_string)}% a menos que seus colegas parlamentares."
+    else:
+        return None
+
+def is_deputy_allign(id):
+    all_votes_list = list(Parlamentary_vote.objects(id_deputy=id).all())
+    if not all_votes_list:
+        return None
+    
+    total_votes = 0
+    accordingly_vote = 0
+
+    for item in all_votes_list:
+        total_votes = total_votes + 1
+        if item.voted_accordingly in "Sim":
+            accordingly_vote = accordingly_vote + 1
+
+    percent = (accordingly_vote / total_votes) * 100.0
+    if percent > 85 or percent < 60:
+        return  f"O deputado é {'{0:.3g}'.format(percent)}% alinhado com seu partido."
+
+    return None
+
+def deputy_term_of_office(deputy):
+    years_in_office = int(datetime.now().year - deputy.initial_legislature_year)
+    if years_in_office < 8:
+        return None
+
+    return f"O deputado está em exercício há {years_in_office} anos."
+
+def deputy_expense_percent(deputy):
+    deputy_expenses = []
+    total = 0
+    for expenses in Expenses.objects:
+        if int(deputy.id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses)
+            total = total + expenses.document_value
+   
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
+    if not exp_list:
+        return "Esse deputado não declarou nenhuma despesa."
+
+    greater_expense = exp_list[0]
+    num = (greater_expense.document_value / total) * 100
+    category = str(greater_expense.expenses_type.lower())
+    category = category.replace(".","")
+    return f"A categoria '{category}' ocupou {'{0:.3g}'.format(num)}% dos seus gastos"
+
+def calculate_deputy_total_expense(deputy):
+    deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
+    deputy_total_expense = 0
+    for item in deputy_expenses:
+        deputy_total_expense = deputy_total_expense + item.document_value
+
+    return deputy_total_expense
+
+@api.route('/expenses_by_type/<id>')
+def expenses_by_type(id):
+    list_expenses_type = []
+    json = {}
+    for expenses in Expenses.objects:
+        if str(expenses.expenses_type) not in list_expenses_type:
+            list_expenses_type.append(str(expenses.expenses_type))
+            json[str(expenses.expenses_type)] = 0
+
+    deputy_expenses = Expenses.objects(deputy_id=id).all()
+    
+    if not deputy_expenses:
+        return {}
+    
+    for item in deputy_expenses:
+        temp = json[str(item.expenses_type)]
+        temp = temp + item.document_value
+        json[str(item.expenses_type)] = temp
+
+    final_json = {}
+    final_json["manuntencao"] = json["MANUTEN\u00c7\u00c3O DE ESCRIT\u00d3RIO DE APOIO \u00c0 ATIVIDADE PARLAMENTAR"]
+    final_json["consultorias"] = json["CONSULTORIAS, PESQUISAS E TRABALHOS T\u00c9CNICOS."]
+    final_json["assinatura"] = json["ASSINATURA DE PUBLICA\u00c7\u00d5ES"]
+    final_json["divulgacao"] = json["DIVULGA\u00c7\u00c3O DA ATIVIDADE PARLAMENTAR."]
+    final_json["fornecimento"] = json["FORNECIMENTO DE ALIMENTA\u00c7\u00c3O DO PARLAMENTAR"]
+    final_json["hospedagem"] = json["HOSPEDAGEM ,EXCETO DO PARLAMENTAR NO DISTRITO FEDERAL."]
+    final_json["loc_aeronaves"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE AERONAVES"]
+    final_json["loc_embarcacoes"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE EMBARCA\u00c7\u00d5ES"]
+    final_json["loc_veiculos"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE VE\u00cdCULOS AUTOMOTORES"]
+    final_json["passagem_reembolso"] = json["PASSAGEM A\u00c9REA - REEMBOLSO"]
+    final_json["passagem_rpa"] = json["PASSAGEM A\u00c9REA - RPA"]
+    final_json["servicos_seguranca"] = json["SERVI\u00c7O DE SEGURAN\u00c7A PRESTADO POR EMPRESA ESPECIALIZADA."]
+    final_json["servico_estacionamento"] = json["SERVI\u00c7O DE T\u00c1XI, PED\u00c1GIO E ESTACIONAMENTO"]
+    final_json["servicos_postais"] = json["SERVI\u00c7OS POSTAIS"]
+    final_json["telefonia"] = json["TELEFONIA"]
+
+    return final_json
+
+@api.route('/get_total_expenses/<id>')
+def get_total_expenses(id):
+    total = 0
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            total = total + expenses.document_value
+   
+    return jsonify(total)
