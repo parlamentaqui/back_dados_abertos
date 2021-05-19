@@ -525,7 +525,8 @@ def delete_all_propositions():
 @api.route('/get_curiosities/<id>')
 def get_curiosities(id):
     curiosity_json = {
-        "curiosity":""
+        "curiosity":"",
+        "gov_align":""
     }
     
     curiosity = None
@@ -547,11 +548,14 @@ def get_curiosities(id):
         
         else:
             curiosity = deputy_expense_percent(deputy)
-
+        
+        gov_align = calculate_government_alignment(deputy)
+        
     if not curiosity:
         return {}
 
     curiosity_json["curiosity"] = curiosity
+    curiosity_json["gov_align"] = gov_align
     return curiosity_json
 
 def oldest_deputy_rank(deputy):
@@ -639,6 +643,32 @@ def calculate_deputy_total_expense(deputy):
         deputy_total_expense = deputy_total_expense + item.document_value
 
     return deputy_total_expense
+
+def calculate_government_alignment(deputy):
+
+    all_votes_by_deputy = list(Parlamentary_vote.objects(id_deputy=deputy.id).all())
+    all_votes_by_gov_deputy = list(Parlamentary_vote.objects(id_deputy=160674).all())  # Votos do deputado líder do governo na Câmara (Hugo Motta)
+         
+    if not all_votes_by_deputy:
+        return None
+    
+    total_votes = 0
+    accordingly_vote = 0
+
+    for a,b in zip(all_votes_by_deputy, all_votes_by_gov_deputy):
+        total_votes = total_votes + 1
+        if a.vote == b.vote:
+            accordingly_vote = accordingly_vote + 1
+
+    print(total_votes)
+    print(accordingly_vote)
+
+    percent = (accordingly_vote / total_votes) * 100.0
+    if percent > 85 or percent < 60:
+        return  f"O deputado é {'{0:.3g}'.format(percent)}% alinhado com o governo."
+
+# Cálculo do alinhamento está dando 100%, porém loop do zip() está dando só 1 iteração 
+    return None
 
 @api.route('/expenses_by_type/<id>')
 def expenses_by_type(id):
