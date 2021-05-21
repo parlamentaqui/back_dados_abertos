@@ -425,8 +425,18 @@ def delete_expenses():
 @api.route('/update_propositions')
 def update_propositions():
     # Request para api da câmara que retorna todos as proposições em tramitação nos uíltimos 30 dias por ordem de id 
-    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/proposicoes?itens=1000&ordem=ASC&ordenarPor=id")
-    all_propositions_r = r.json()
+    # Pagina maxima 5623
+
+    all_propositions_json = []
+    for index in range(1, 5624):
+        r = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes?dataInicio=2010-01-01&dataFim=2021-05-05&itens=100&pagina={index}&ordem=DESC&ordenarPor=ano")
+        if not r:
+            continue
+        print(index)
+        all_propositions_json.append(r.json()["dados"])
+    
+    # all_propositions_r = r.json()
+    return jsonify(all_propositions_json)
 
     # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
     all_propositions_json = []
@@ -525,9 +535,10 @@ def delete_all_propositions():
 @api.route('/get_curiosities/<id>')
 def get_curiosities(id):
     curiosity_json = {
-        "curiosity":"",
-        "gov_align":""
+        "curiosity":""
     }
+
+    # Curiosidade É O ALINHAMENTO, então remover o gov_align e fazer se o alinhamento tem uma porcentagem interessante (ver is_deputy_allign)
     
     curiosity = None
     deputy = Deputy.objects(id=id).first()
@@ -543,19 +554,20 @@ def get_curiosities(id):
         elif is_deputy_allign(deputy.id):
             curiosity = is_deputy_allign(deputy.id)
 
+        elif calculate_government_alignment(deputy):
+            curiosity = calculate_government_alignment(deputy)
+
         elif deputy_term_of_office(deputy):
             curiosity = deputy_term_of_office(deputy)
         
         else:
             curiosity = deputy_expense_percent(deputy)
-        
-        gov_align = calculate_government_alignment(deputy)
-        
+             
     if not curiosity:
         return {}
 
     curiosity_json["curiosity"] = curiosity
-    curiosity_json["gov_align"] = gov_align
+
     return curiosity_json
 
 def oldest_deputy_rank(deputy):
@@ -569,7 +581,9 @@ def oldest_deputy_rank(deputy):
     if cont > 50:
         return None
 
-    return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício com o tempo de: {cont} anos."
+    # Foi omitido a qtd de deputados aqui pq o projeto está tratando dos deputados com legislatura atual
+    return f"{cont}º parlamentar com mais tempo em exercício atualmente : {int(datetime.now().year - deputy.initial_legislature_year)} anos."
+    
 
 def deputy_related_expense(deputy):
     deputy_total_expense = calculate_deputy_total_expense(deputy)
@@ -664,10 +678,9 @@ def calculate_government_alignment(deputy):
     print(accordingly_vote)
 
     percent = (accordingly_vote / total_votes) * 100.0
-    if percent > 85 or percent < 60:
+    if percent > 90 or percent < 35:
         return  f"O deputado é {'{0:.3g}'.format(percent)}% alinhado com o governo."
 
-# Cálculo do alinhamento está dando 100%, porém loop do zip() está dando só 1 iteração 
     return None
 
 @api.route('/expenses_by_type/<id>')
