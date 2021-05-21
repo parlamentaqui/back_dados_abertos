@@ -554,7 +554,7 @@ def get_curiosities(id):
         elif is_deputy_allign(deputy.id):
             curiosity = is_deputy_allign(deputy.id)
 
-        elif calculate_government_alignment(deputy):
+        elif int(deputy.id) != 160674 and calculate_government_alignment(deputy):
             curiosity = calculate_government_alignment(deputy)
 
         elif deputy_term_of_office(deputy):
@@ -669,10 +669,20 @@ def calculate_government_alignment(deputy):
     total_votes = 0
     accordingly_vote = 0
 
-    for a,b in zip(all_votes_by_deputy, all_votes_by_gov_deputy):
-        total_votes = total_votes + 1
-        if a.vote == b.vote:
-            accordingly_vote = accordingly_vote + 1
+    # for a,b in zip(all_votes_by_deputy, all_votes_by_gov_deputy):
+    #     total_votes = total_votes + 1
+    #     if a.vote == b.vote:
+    #         accordingly_vote = accordingly_vote + 1
+
+    for vote_by_deputy in all_votes_by_deputy:
+        for vote_gov in all_votes_by_gov_deputy:
+            if vote_by_deputy.id_voting == vote_gov.id_voting:
+                total_votes += 1
+                if vote_by_deputy.vote == vote_gov.vote:
+                    accordingly_vote += 1
+                    break
+
+
 
     print(total_votes)
     print(accordingly_vote)
