@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
+import sys
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
@@ -182,11 +183,19 @@ def get_votes_by_deputy_id(id):
 
     return jsonify(json_list)
 
+@api.route('/get_proposition_by_year/<year>')
+def get_proposition_by_year(year):
+    proposition_list = []
+    for prop in Proposicao.objects:
+        if int(prop.ano) == int(year):
+            proposition_list.append(prop.to_json())
+    return jsonify(proposition_list)
+
 @api.route('/get_all_propositions')
 def get_all_proposition():
     propositions = []
 
-    for prop in Proposicao.objects:
+    for prop in Proposicao.objects: 
         propositions.append(prop.to_json())
 
     return jsonify(propositions)
@@ -200,6 +209,27 @@ def get_proposition_by_id(id):
 
     return {}
 
+@api.route('/get_propositions_by_author_id/<id>')
+def get_propositions_by_author_id(id):
+    props_by_author = []
+
+    for proposition in Proposicao.objects:
+        if int(proposition.id_deputado_autor) == int(id):
+            props_by_author.append(proposition.to_json())
+
+    return jsonify(props_by_author)
+
+
+@api.route('/deputy_by_name', methods=['POST'])
+def deputy_by_name():
+    requested_json = request.get_json()
+    name_filter = requested_json["nome"]
+    deputy = Deputy.objects(name=name_filter).first()
+    
+    if deputy:
+        return deputy.to_json()
+
+    return {}
 
 #ROTAS DB - DEPUTADOS
 @api.route('/remover_deputados')
@@ -448,6 +478,7 @@ def update_propositions():
 
     # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
     propositions_list = []
+    all_images = []
     for proposition in all_propositions_json[0]:
         temp_id = int(proposition["id"])
         if temp_id not in get_all_ids_DB(): 
@@ -499,6 +530,24 @@ def update_propositions():
         apresentation_date = datetime.strptime(str(proposition["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dataApresentacao"]) > 5 else None
         proposition_date = datetime.strptime(str(proposition["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["statusProposicao"]["dataHora"]) > 5 else None
         
+        # Requisição das imagens
+        image_theme = proposition_theme
+        image_theme = image_theme.replace(" ", "+")
+        image_theme = image_theme.replace("+e+", "+")
+        image_theme = image_theme.replace(",", "")
+        image_theme = image_theme.split(' ')[0]
+        # return image_theme
+        if not any(element["tema"] == image_theme for element in all_images): 
+            r_image = requests.get(f"https://api.pexels.com/v1/search?query={image_theme}&per_page=1",headers={'Authorization' : '563492ad6f91700001000001462277c399ea46d68895f5edcfa3260b'}).json()
+            image_dict = {
+                "tema": image_theme, 
+                "image":r_image["photos"][0]["src"]["medium"] if r_image["total_results"]!=0 else None, 
+                "id":r_image["photos"][0]["id"] if r_image["total_results"]!=0 else None
+            }
+            all_images.append(image_dict)
+        else:
+            image_dict = next(item for item in all_images if item["tema"] == image_theme) 
+
         new_proposition = Proposicao(
             proposicao_id = proposition["id"],
             id_deputado_autor = author_info_json_id,
@@ -515,13 +564,15 @@ def update_propositions():
             tema_proposicao = proposition_theme,
             sigla_orgao = proposition["statusProposicao"]["siglaOrgao"], # Comeca aqui as informacoes do objeto de status
             data_proposicao = proposition_date, 
-            descricao_situacao = proposition["statusProposicao"]["descricaoSituacao"],
-            despacho = proposition["statusProposicao"]["despacho"],
-            uri_relator = proposition["statusProposicao"]["uriUltimoRelator"],
-            sigla_tipo = proposition["siglaTipo"],
-            cod_tipo = proposition["codTipo"],
-            numero = proposition["numero"],
-            ano = proposition["ano"]
+            descricao_situacao = proposition["dados"]["statusProposicao"]["descricaoSituacao"],
+            despacho = proposition["dados"]["statusProposicao"]["despacho"],
+            uri_relator = proposition["dados"]["statusProposicao"]["uriUltimoRelator"],
+            sigla_tipo = proposition["dados"]["siglaTipo"],
+            cod_tipo = proposition["dados"]["codTipo"],
+            numero = proposition["dados"]["numero"],
+            ano = proposition["dados"]["ano"],
+            image_url = image_dict["image"],
+            image_id = str(image_dict["id"])
         ).save()
 
     return "Proposições atualizadas com sucesso."
