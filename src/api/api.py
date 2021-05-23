@@ -4,57 +4,42 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from models import *
 from operator import attrgetter
+import sys
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
-#Retornar o json dos deputados pra aparecer na home
+#Getters
 @api.route('/deputies-home')
-def deputados():
-    s_list = sorted(Deputy.objects, reverse=True, key=attrgetter('last_activity_date'))
-    all_deputies = []
-    for deputy in s_list:
-        depu_json= deputy.to_json()
-        all_deputies.append(depu_json)
-    return jsonify(all_deputies[:6])
-
-# Rota que retorna um deputado em específico usando um id
-@api.route('/deputado_especifico/<id>')
-def ver_deputado(id):
-    r = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/deputados/{id}")
-
-    json_deputy = r.json()
-
-    return json_deputy["dados"]
-
-# Rota que retorna um json com todos os jsons de deputados ordenados por nome
-@api.route('/deputies')
-def index():
+def deputies_home():
     full_json = []
-    sorted_list = sorted(Deputy.objects, key=attrgetter('name'))
+    sorted_list = sorted(Deputy.objects, reverse = True, key = lambda dep: datetime.strptime(str(dep["last_activity_date"]), "%Y-%m-%d %H:%M:%S") if len(str(dep["last_activity_date"])) > 5 else datetime.strptime("1999-12-12", "%Y-%m-%d"))
 
-    for deputy in sorted_list:
-        temp_json = deputy.to_json()
-        full_json.append(temp_json)
+    for deputy in sorted_list[0:6]:
+        full_json.append(deputy.to_json())
 
     return jsonify(full_json)
 
-# Rota que retorna o resultado de uma busca de acordo com os filtros no corpo da requsisçao POST
+@api.route('/deputies')
+def index():
+    full_json = []
+    sorted_list = sorted(Deputy.objects, reverse = True, key = lambda dep: datetime.strptime(str(dep["last_activity_date"]), "%Y-%m-%d %H:%M:%S") if len(str(dep["last_activity_date"])) > 5 else datetime.strptime("1999-12-12", "%Y-%m-%d"))
+
+    for deputy in sorted_list:
+        full_json.append(deputy.to_json())
+
+    return jsonify(full_json)
+
 @api.route('/resultado', methods=['POST'])
 def resultado():
-    #recebemos um json do request com {nome, uf e partido}
+    #json de request {nome, uf e partido}
     requested_json = request.get_json()
     name_filter = str.lower(requested_json["nome"])
     uf_filter = str.lower(requested_json["uf"])
     party_filter = str.lower(requested_json["partido"])
 
-    # Cria uma lista vazia e preenche com os objetos salvos de Deputy
-    all_deputies = []
-    for item in Deputy.objects:
-        all_deputies.append(item)
+    all_deputies = list(Deputy.objects)
  
-    # Filtra os resultados da pesquisa
     for deputy in Deputy.objects:
-        # Variavel auxiliar que ira dizer se o deputado possui ou nao uma UF
         aux = False
         if deputy.federative_unity == None:
             aux = True
@@ -70,29 +55,22 @@ def resultado():
         else:
             all_deputies.remove(deputy)
 
-    # Ordena os deputados por nome
     sorted_list = sorted(all_deputies, key=attrgetter('name'))
 
-    # Cria um json com todos os deputados encontrados e já ordenados
     full_json = []
-
     for deputy in sorted_list:
-        temp_json = deputy.to_json()
-        full_json.append(temp_json)
+        full_json.append(deputy.to_json())
 
-    # Retorna no formato JSON a lista de objetos full_json
     return jsonify(full_json)
 
 @api.route('/deputies/<id>')
 def profile(id):
-    for profile in Deputy.objects:
-      #Adicionar informacoes que estao comentadas
-        if int(id) == int(profile.id):
-            return profile.to_json()
-        
+    deputy = Deputy.objects(id=id).first()
+    if deputy:
+        return deputy.to_json()
+
     return {} 
         
-
 @api.route('/federative_unities')
 def federative_unities():
     r = requests.get(f'https://servicodados.ibge.gov.br/api/v1/localidades/estados')
@@ -107,137 +85,269 @@ def federative_unities():
     custom_federative_unities_json = sorted(custom_federative_unities_json,key=lambda k: k['name'])
     return jsonify(custom_federative_unities_json)
 
-
 @api.route('/parties')
 def parties():
     parties_list = []
     for deputy in Deputy.objects:
-      #Adicionar informacoes que estao comentadas
         parties_list.append(deputy.party)
     used = set()
     unique = [x for x in parties_list if x not in used and (used.add(x) or True)]
     return jsonify(sorted(unique)) 
-        
 
-# Rota para apagar os todos os deputados do DB (USAR SOMENTE PARA TESTES) 
+@api.route('/get_votes')
+def get_votes():
+    #printar todos os valores dos banco de dados
+    all_parlamentary_votes = []
+
+    for item in Parlamentary_vote.objects:
+        all_parlamentary_votes.append(item.to_json()) 
+
+    return jsonify(all_parlamentary_votes)
+
+@api.route('/expenses')
+def get_expenses():
+    all_expenses = []
+    for item in Expenses.objects:
+        all_expenses.append(item.to_json())
+
+    return jsonify(all_expenses)
+
+@api.route('/expenses/<id>')
+def expense(id):
+    deputy_expenses = []
+    expense = Expenses.objects(deputy_id=id).all()
+    
+    for item in expense:
+        deputy_expenses.append(item.to_json())
+        
+    return jsonify(deputy_expenses)
+
+@api.route('/filtered_expenses/<id>', methods=['POST'])
+def filtered_expenses(id):
+    #recebemos um json do request com { razao_social e tipo_gasto }
+    requested_json = request.get_json()
+    supplier_name = str.lower(requested_json["razao_social"])
+    expenses_type = str.lower(requested_json["tipo_gasto"])
+
+    # Cria uma lista vazia e preenche com os objetos salvos de Deputy
+    all_deputy_expenses = Expenses.objects(deputy_id=id).all()
+    temp_list = []
+    
+    # Filtra os resultados da pesquisa
+    for expense in all_deputy_expenses:
+        if len(supplier_name) > 0:
+            #filtro pelo nome
+            if len(expenses_type) > 0:
+                #filtro pelo nome e pelo tipo
+                if str.lower(expense.expenses_type).find(expenses_type) != -1 and str.lower(expense.supplier_name).find(supplier_name) != -1:
+                    #encontrou o tipo
+                    temp_list.append(expense)
+                    continue
+                else:
+                    #filtrando pelo tipo e nao encontrou nada
+                    continue 
+            else:
+                #filtro somente pelo nome
+                if str.lower(expense.supplier_name).find(supplier_name) != -1:
+                    temp_list.append(expense)
+                    continue
+                else:
+                    continue
+        elif len(expenses_type) > 0:
+            #filtro somente pelo tipo
+            if str.lower(expense.expenses_type).find(expenses_type) != -1:
+                #encontrou o tipo
+                temp_list.append(expense)
+                continue
+            else:
+                #nao encontrou nada
+                continue 
+        else:
+            #nenhum filtro
+            temp_list.append(expense)
+            continue 
+
+    full_json = []
+    for expense in temp_list:
+        full_json.append(expense.to_json())
+
+    return jsonify(full_json)
+
+@api.route('/get_votes_by_deputy_id/<id>')
+def get_votes_by_deputy_id(id):
+    deputy_votes = Parlamentary_vote.objects(id_deputy=id).all()
+    json_list = []
+    for item in deputy_votes:
+        if int(item.id_deputy) == int(id):
+            json_list.append(item.to_json())
+
+    return jsonify(json_list)
+
+@api.route('/get_proposition_by_year/<year>')
+def get_proposition_by_year(year):
+    proposition_list = []
+    for prop in Proposicao.objects:
+        if int(prop.ano) == int(year):
+            proposition_list.append(prop.to_json())
+    return jsonify(proposition_list)
+
+@api.route('/get_all_propositions')
+def get_all_proposition():
+    propositions = []
+
+    for prop in Proposicao.objects: 
+        propositions.append(prop.to_json())
+
+    return jsonify(propositions)
+
+@api.route('/get_proposition_by_id/<id>')
+def get_proposition_by_id(id):
+    proposition = Proposicao.objects(proposicao_id=id).first()
+
+    if proposition:
+        return proposition.to_json()
+
+    return {}
+
+@api.route('/get_propositions_by_author_id/<id>')
+def get_propositions_by_author_id(id):
+    props_by_author = []
+
+    for proposition in Proposicao.objects:
+        if int(proposition.id_deputado_autor) == int(id):
+            props_by_author.append(proposition.to_json())
+
+    return jsonify(props_by_author)
+
+
+@api.route('/deputy_by_name', methods=['POST'])
+def deputy_by_name():
+    requested_json = request.get_json()
+    name_filter = requested_json["nome"]
+    deputy = Deputy.objects(name=name_filter).first()
+    
+    if deputy:
+        return deputy.to_json()
+
+    return {}
+
+#ROTAS DB - DEPUTADOS
 @api.route('/remover_deputados')
 def apagar_deputados():
     Deputy.objects.all().delete()
     return "Deputados apagados com sucesso"
 
-
-# Rota que popula no DB os dados dos deputados registrados nos dados abertos da câmara
 @api.route('/atualizar_deputados')
 def atualizar_deputados():
     r = requests.get(f'https://dadosabertos.camara.leg.br/arquivos/deputados/json/deputados.json')
     all_deputies_basic_json = r.json()
     filtered_list = filter(lambda deputado : deputado["idLegislaturaFinal"] == 56, all_deputies_basic_json["dados"])
 
-    #criar uma lista com todos os deputados
     all_deputies = []
-
-    #Iterar por todos os deputados que se encontram no basic json
     for item in filtered_list:
-        all_deputies.append(create_deputy(item))  
+        create_deputy(item)  
 
-    return jsonify(all_deputies)
-
+    return "Done. Use /deputies to get all deputies in data base."
 
 def create_deputy(deputy_json):
     #Criar uma nova requisição desse deputado para pegar as informações específicas
-    request_full_deputy_info = requests.get(deputy_json["uri"])
-    real_json = request_full_deputy_info.json()["dados"]
+    real_json = requests.get(deputy_json["uri"]).json()["dados"]
 
-    # Lógica que popula corretamente o ano inicial e final da legislatura
-    request_initial_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaInicial"]}')
-    initial_legislature_json = request_initial_legistaure.json()["dados"]
-
-    request_final_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaFinal"]}')
-    final_legislature_json = request_final_legistaure.json()["dados"]
-   
-    # Aqui se cria uma variavel que ira definir o ultimo status do deputado
-    real_last_activity_date = real_json["ultimoStatus"]["data"]
-    last_activity_date = str(real_last_activity_date)
-
-    # Lógica para verificar se a informação de ultimo status está vazia ou não e corrigi-la para o formato correto
-    if real_last_activity_date is None:
-        last_activity_date = None
-
-    elif len(real_last_activity_date) < 8:
-        real_last_activity_date = None
-        last_activity_date = None
-
+    deputy = Deputy.objects(id=real_json["id"]).first()
+    
+    if deputy:
+        deputy.office_number = real_json["ultimoStatus"]["gabinete"]["sala"]
+        deputy.office_name = real_json["ultimoStatus"]["gabinete"]["nome"]
+        deputy.office_premise = real_json["ultimoStatus"]["gabinete"]["predio"]
+        deputy.office_floor = real_json["ultimoStatus"]["gabinete"]["andar"]
+        deputy.office_phone = real_json["ultimoStatus"]["gabinete"]["telefone"]
+        deputy.office_email = real_json["ultimoStatus"]["gabinete"]["email"]
+        deputy.save()
+        return
     else:
-        last_activity_date = last_activity_date[0:10]
-        last_activity_date = datetime.strptime(last_activity_date, '%Y-%m-%d')
+        # Lógica que popula corretamente o ano inicial e final da legislatura
+        request_initial_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaInicial"]}')
+        initial_legislature_json = request_initial_legistaure.json()["dados"]
+        request_final_legistaure = requests.get(f'https://dadosabertos.camara.leg.br/api/v2/legislaturas/{deputy_json["idLegislaturaFinal"]}')
+        final_legislature_json = request_final_legistaure.json()["dados"]
+    
+        # Aqui se cria uma variavel que ira definir o ultimo status do deputado
+        real_last_activity_date = real_json["ultimoStatus"]["data"]
+        last_activity_date = str(real_last_activity_date)
 
-    # Popular a nova classe de acordo com as infos recebidas do objeto deputy_json
-    new_deputy = Deputy(
-        birth_date=datetime.strptime(str(real_json["dataNascimento"]), '%Y-%m-%d') if len(str(real_json["dataNascimento"])) > 5 else None,
-        death_date= datetime.strptime(str(real_json["dataFalecimento"]), '%Y-%m-%d') if len(str(real_json["dataFalecimento"])) > 5 else None,
-        email=real_json["ultimoStatus"]["email"],
-        facebook_username=None,
-        federative_unity=real_json["ufNascimento"],
-        final_legislature_id=deputy_json["idLegislaturaFinal"],
-        final_legislature_year=datetime.strptime(str(final_legislature_json["dataFim"]), '%Y-%m-%d').year,
-        full_name=real_json["nomeCivil"],
-        id=real_json["id"], 
-        instagram_username=None,  
-        initial_legislature_id=deputy_json["idLegislaturaInicial"],
-        initial_legislature_year=datetime.strptime(str(initial_legislature_json["dataInicio"]), '%Y-%m-%d').year,
-        last_activity_date=last_activity_date,
-        name=real_json["ultimoStatus"]["nomeEleitoral"],
-        party=real_json["ultimoStatus"]["siglaPartido"],
-        photo_url=real_json["ultimoStatus"]["urlFoto"],
-        sex=real_json["sexo"],
-        twitter_username=None,
-        ).save()
+        # Lógica para verificar se a informação de ultimo status está vazia ou não e corrigi-la para o formato correto
+        if real_last_activity_date is None:
+            last_activity_date = None
 
-    return new_deputy.to_json()
+        elif len(real_last_activity_date) < 8:
+            real_last_activity_date = None
+            last_activity_date = None
 
-# Rota que popula no DB os dados das votacoes dos deputados
+        else:
+            last_activity_date = last_activity_date[0:10]
+            last_activity_date = datetime.strptime(last_activity_date, '%Y-%m-%d')
+
+        # Popular a nova classe de acordo com as infos recebidas do objeto deputy_json
+        new_deputy = Deputy(
+            birth_date=datetime.strptime(str(real_json["dataNascimento"]), '%Y-%m-%d') if len(str(real_json["dataNascimento"])) > 5 else None,
+            death_date= datetime.strptime(str(real_json["dataFalecimento"]), '%Y-%m-%d') if len(str(real_json["dataFalecimento"])) > 5 else None,
+            email=real_json["ultimoStatus"]["email"],
+            facebook_username=None,
+            federative_unity=real_json["ufNascimento"],
+            final_legislature_id=deputy_json["idLegislaturaFinal"],
+            final_legislature_year=datetime.strptime(str(final_legislature_json["dataFim"]), '%Y-%m-%d').year,
+            full_name=real_json["nomeCivil"],
+            id=real_json["id"], 
+            instagram_username=None,  
+            initial_legislature_id=deputy_json["idLegislaturaInicial"],
+            initial_legislature_year=datetime.strptime(str(initial_legislature_json["dataInicio"]), '%Y-%m-%d').year,
+            last_activity_date=last_activity_date,
+            name=real_json["ultimoStatus"]["nomeEleitoral"],
+            party=real_json["ultimoStatus"]["siglaPartido"],
+            photo_url=real_json["ultimoStatus"]["urlFoto"],
+            sex=real_json["sexo"],
+            twitter_username=None,
+            office_number = real_json["ultimoStatus"]["gabinete"]["sala"],
+            office_name = real_json["ultimoStatus"]["gabinete"]["nome"],
+            office_premise = real_json["ultimoStatus"]["gabinete"]["predio"],
+            office_floor = real_json["ultimoStatus"]["gabinete"]["andar"],
+            office_phone = real_json["ultimoStatus"]["gabinete"]["telefone"],
+            office_email = real_json["ultimoStatus"]["gabinete"]["email"]
+            ).save()
+
+
+#ROTAS DB - VOTOS
 @api.route('/update_votes')
 def update_votes():
     #request para api da câmara que retorna todos os votos em projetos em ordem de data
     r = requests.get("https://dadosabertos.camara.leg.br/api/v2/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro")
     all_votes_json = r.json()
 
-    #para cada voto desse, encontrar os deputados responsáveis, quem votou ou não
     for vote in all_votes_json["dados"]:
         
         vote_uri = vote["uri"] + "/votos"
         r2 = requests.get(vote_uri)
         specific_vote_list = r2.json()["dados"]
 
-        #caso a lista nao seja vazia, verificar e/ou popular esse voto no banco de dados
         if specific_vote_list:
             
-            #para cada voto dentro da lista, atualizar o banco 
+            proposition_json = get_proposition_json_by_vote(vote)
+            
             for this_vote in specific_vote_list:
                 deputy_json = this_vote["deputado_"]
                 unique_vote_id = f'{vote["id"]}-{deputy_json["id"]}' #criar um id unico pra esse voto.
 
-                # Verificar se esse voto já foi populado/criado corretamente, caso nao tenha sido, criar um novo.
                 need_create_vote = True
-                for item in Parlamentary_vote.objects:
-                    if item.unique_id in unique_vote_id:
-                        need_create_vote = False
-                        # print('Não precisa criar o voto do : ' + deputy_json["nome"] + ' para a votação ' + vote["id"])
-                        break
-                        
+                vote_db = Parlamentary_vote.objects(unique_id=unique_vote_id).first()
                 
-                #passou da verificação e precisa criar um voto
-                if need_create_vote:
-                    #pegar o json da proposição desse voto
-                    proposition_json = get_proposition_json_by_vote(vote)
+                if vote_db or this_vote is None:
+                    need_create_vote = False
 
-                    #definir o datetime correto
+                if need_create_vote:
                     vote_date = datetime.strptime(str(this_vote["dataRegistroVoto"]), '%Y-%m-%dT%H:%M:%S') if len(this_vote["dataRegistroVoto"]) > 5 else None
 
-                    #lógica se votou de acordo com o partido:
                     voted_accordingly_party = voted_accordingly_party_method(this_vote["tipoVoto"], deputy_json["siglaPartido"], vote["uri"])
 
-                    #Criar o novo voto parlamentar e salvar no banco com o métodos .save() 
                     new_vote = Parlamentary_vote(
                         unique_id = unique_vote_id,
                         id_voting = vote["id"],
@@ -302,19 +412,10 @@ def get_proposition_json_by_vote(vote_json):
 @api.route('/delete_votes')
 def delete_votes():
     Parlamentary_vote.objects.all().delete()
-
     return "All votes in database were deleted! Use api/update_votes to update database."
 
-@api.route('/get_votes')
-def get_votes():
-    #printar todos os valores dos banco de dados
-    all_parlamentary_votes = []
 
-    for item in Parlamentary_vote.objects:
-        all_parlamentary_votes.append(item.to_json()) 
-
-    return jsonify(all_parlamentary_votes)
-
+#ROTAS DB - DESPESAS
 @api.route('/update_expenses')
 def update_expenses():
     for item in Deputy.objects:
@@ -322,7 +423,6 @@ def update_expenses():
         real_json = r.json()["dados"]
         if not real_json: 
             continue
-
 
         for expense in real_json:
             new_expenses = Expenses(
@@ -343,40 +443,15 @@ def update_expenses():
                 batch_cod =  expense["codLote"],
                 tranche =  expense["parcela"],
                 ).save()
-    return "banco de dados atualizado com sucesso"
-
-@api.route('/expenses')
-def get_expenses():
-    all_expenses = []
-    for item in Expenses.objects:
-        all_expenses.append(item.to_json())
-
-    return jsonify(all_expenses)
+    return "Done. Use api/expenses to get all expenses in data base."
 
 @api.route('/delete_expenses')
 def delete_expenses():
     Expenses.objects.all().delete() 
-
     return "All expenses in database was deleted! Use api/update_expenses to update database."
 
-@api.route('/expenses/<id>')
-def expense(id):
-    deputy_expenses = []
-    for expenses in Expenses.objects:
-        if int(id) == int(expenses.deputy_id):
-            deputy_expenses.append(expenses.to_json())
-        
-    return jsonify(deputy_expenses)
 
-@api.route('/get_votes_by_deputy_id/<id>')
-def get_votes_by_deputy_id(id):
-    deputy_votes = []
-    for item in Parlamentary_vote.objects:
-        if int(item.id_deputy) == int(id):
-            deputy_votes.append(item.to_json())
-
-    return jsonify(deputy_votes)
-
+#ROTAS DB - PROPOSIÇÕES
 @api.route('/update_propositions')
 def update_propositions():
     # Request para api da câmara que retorna todos as proposições em tramitação nos uíltimos 30 dias por ordem de id 
@@ -385,6 +460,7 @@ def update_propositions():
 
     # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
     all_propositions_json = []
+    all_images = []
     for proposition in all_propositions_r["dados"]:
         temp_id = int(proposition["id"])
         if temp_id not in get_all_ids_DB(): 
@@ -436,6 +512,24 @@ def update_propositions():
         apresentation_date = datetime.strptime(str(proposition["dados"]["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["dataApresentacao"]) > 5 else None
         proposition_date = datetime.strptime(str(proposition["dados"]["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["statusProposicao"]["dataHora"]) > 5 else None
         
+        # Requisição das imagens
+        image_theme = proposition_theme
+        image_theme = image_theme.replace(" ", "+")
+        image_theme = image_theme.replace("+e+", "+")
+        image_theme = image_theme.replace(",", "")
+        image_theme = image_theme.split(' ')[0]
+        # return image_theme
+        if not any(element["tema"] == image_theme for element in all_images): 
+            r_image = requests.get(f"https://api.pexels.com/v1/search?query={image_theme}&per_page=1",headers={'Authorization' : '563492ad6f91700001000001462277c399ea46d68895f5edcfa3260b'}).json()
+            image_dict = {
+                "tema": image_theme, 
+                "image":r_image["photos"][0]["src"]["medium"] if r_image["total_results"]!=0 else None, 
+                "id":r_image["photos"][0]["id"] if r_image["total_results"]!=0 else None
+            }
+            all_images.append(image_dict)
+        else:
+            image_dict = next(item for item in all_images if item["tema"] == image_theme) 
+
         new_proposition = Proposicao(
             proposicao_id = proposition["dados"]["id"],
             id_deputado_autor = author_info_json_id,
@@ -458,7 +552,9 @@ def update_propositions():
             sigla_tipo = proposition["dados"]["siglaTipo"],
             cod_tipo = proposition["dados"]["codTipo"],
             numero = proposition["dados"]["numero"],
-            ano = proposition["dados"]["ano"]
+            ano = proposition["dados"]["ano"],
+            image_url = image_dict["image"],
+            image_id = str(image_dict["id"])
         ).save()
 
     return "Proposições atualizadas com sucesso."
@@ -470,22 +566,44 @@ def get_all_ids_DB():
     
     return all_ids
 
-@api.route('/get_all_propositions')
-def get_all_proposition():
-    propositions = []
+@api.route('/delete_propositions')
+def delete_all_propositions():
+    Proposicao.objects.all().delete()
+    return "Proposicoes apagadas com sucesso"
 
-    for prop in Proposicao.objects:
-        propositions.append(prop.to_json())
 
-    return jsonify(propositions)
+#CURIOSIDADES
+@api.route('/get_curiosities/<id>')
+def get_curiosities(id):
+    curiosity_json = {
+        "curiosity":""
+    }
+    
+    curiosity = None
+    deputy = Deputy.objects(id=id).first()
 
-@api.route('/get_proposition_by_id/<id>')
-def get_proposition_by_id(id):
-    for prop in Proposicao.objects:
-        if int(prop.id) == int(id):
-            return jsonify(prop.to_json())
+    if deputy:
 
-    return "Erro. Proposicao nao encontrada"
+        if oldest_deputy_rank(deputy):
+            curiosity = oldest_deputy_rank(deputy)
+            
+        elif deputy_related_expense(deputy):
+            curiosity = deputy_related_expense(deputy)
+
+        elif is_deputy_allign(deputy.id):
+            curiosity = is_deputy_allign(deputy.id)
+
+        elif deputy_term_of_office(deputy):
+            curiosity = deputy_term_of_office(deputy)
+        
+        else:
+            curiosity = deputy_expense_percent(deputy)
+
+    if not curiosity:
+        return {}
+
+    curiosity_json["curiosity"] = curiosity
+    return curiosity_json
 
 @api.route('/delete_propositions')
 def delete_all_propositions():
@@ -541,3 +659,136 @@ def get_deputy_party(id):
             return item.party
     
     return ""
+  
+def oldest_deputy_rank(deputy):
+    s_list = sorted(Deputy.objects, reverse=False, key=attrgetter('initial_legislature_year'))
+    cont = 0
+    for item in s_list:
+        cont = cont + 1
+        if int(deputy.id) == int(item.id):
+            break
+    
+    if cont > 50:
+        return None
+
+    return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício com o tempo de: {cont} anos."
+
+def deputy_related_expense(deputy):
+    deputy_total_expense = calculate_deputy_total_expense(deputy)
+
+    all_deputies_total_expenses = []
+    for item in Deputy.objects:
+        all_deputies_total_expenses.append(calculate_deputy_total_expense(item))
+    
+    average = 0
+    for item in all_deputies_total_expenses:
+        average = average + item
+    
+    average = int(average / len(all_deputies_total_expenses))
+    expense_percent = ((deputy_total_expense / average) * 100.0) - 100.0
+    expense_percent_string = float('{0:.3g}'.format(expense_percent))
+    if expense_percent > 0 and abs(expense_percent) > 10:
+        return f"Gastou {expense_percent_string}% a mais que seus colegas parlamentares."
+    elif expense_percent < 0 and abs(expense_percent) > 20:
+        f"Gastou {abs(expense_percent_string)}% a menos que seus colegas parlamentares."
+    else:
+        return None
+
+def is_deputy_allign(id):
+    all_votes_list = list(Parlamentary_vote.objects(id_deputy=id).all())
+    if not all_votes_list:
+        return None
+    
+    total_votes = 0
+    accordingly_vote = 0
+
+    for item in all_votes_list:
+        total_votes = total_votes + 1
+        if item.voted_accordingly in "Sim":
+            accordingly_vote = accordingly_vote + 1
+
+    percent = (accordingly_vote / total_votes) * 100.0
+    if percent > 85 or percent < 60:
+        return  f"O deputado é {'{0:.3g}'.format(percent)}% alinhado com seu partido."
+
+    return None
+
+def deputy_term_of_office(deputy):
+    years_in_office = int(datetime.now().year - deputy.initial_legislature_year)
+    if years_in_office < 8:
+        return None
+
+    return f"O deputado está em exercício há {years_in_office} anos."
+
+def deputy_expense_percent(deputy):
+    deputy_expenses = []
+    total = 0
+    for expenses in Expenses.objects:
+        if int(deputy.id) == int(expenses.deputy_id):
+            deputy_expenses.append(expenses)
+            total = total + expenses.document_value
+   
+    exp_list = sorted(deputy_expenses, reverse=True, key=attrgetter('document_value'))
+    if not exp_list:
+        return "Esse deputado não declarou nenhuma despesa."
+
+    greater_expense = exp_list[0]
+    num = (greater_expense.document_value / total) * 100
+    category = str(greater_expense.expenses_type.lower())
+    category = category.replace(".","")
+    return f"A categoria '{category}' ocupou {'{0:.3g}'.format(num)}% dos seus gastos"
+
+def calculate_deputy_total_expense(deputy):
+    deputy_expenses =  Expenses.objects(deputy_id=deputy.id)
+    deputy_total_expense = 0
+    for item in deputy_expenses:
+        deputy_total_expense = deputy_total_expense + item.document_value
+
+    return deputy_total_expense
+
+@api.route('/expenses_by_type/<id>')
+def expenses_by_type(id):
+    list_expenses_type = []
+    json = {}
+    for expenses in Expenses.objects:
+        if str(expenses.expenses_type) not in list_expenses_type:
+            list_expenses_type.append(str(expenses.expenses_type))
+            json[str(expenses.expenses_type)] = 0
+
+    deputy_expenses = Expenses.objects(deputy_id=id).all()
+    
+    if not deputy_expenses:
+        return {}
+    
+    for item in deputy_expenses:
+        temp = json[str(item.expenses_type)]
+        temp = temp + item.document_value
+        json[str(item.expenses_type)] = temp
+
+    final_json = {}
+    final_json["manuntencao"] = json["MANUTEN\u00c7\u00c3O DE ESCRIT\u00d3RIO DE APOIO \u00c0 ATIVIDADE PARLAMENTAR"]
+    final_json["consultorias"] = json["CONSULTORIAS, PESQUISAS E TRABALHOS T\u00c9CNICOS."]
+    final_json["assinatura"] = json["ASSINATURA DE PUBLICA\u00c7\u00d5ES"]
+    final_json["divulgacao"] = json["DIVULGA\u00c7\u00c3O DA ATIVIDADE PARLAMENTAR."]
+    final_json["fornecimento"] = json["FORNECIMENTO DE ALIMENTA\u00c7\u00c3O DO PARLAMENTAR"]
+    final_json["hospedagem"] = json["HOSPEDAGEM ,EXCETO DO PARLAMENTAR NO DISTRITO FEDERAL."]
+    final_json["loc_aeronaves"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE AERONAVES"]
+    final_json["loc_embarcacoes"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE EMBARCA\u00c7\u00d5ES"]
+    final_json["loc_veiculos"] = json["LOCA\u00c7\u00c3O OU FRETAMENTO DE VE\u00cdCULOS AUTOMOTORES"]
+    final_json["passagem_reembolso"] = json["PASSAGEM A\u00c9REA - REEMBOLSO"]
+    final_json["passagem_rpa"] = json["PASSAGEM A\u00c9REA - RPA"]
+    final_json["servicos_seguranca"] = json["SERVI\u00c7O DE SEGURAN\u00c7A PRESTADO POR EMPRESA ESPECIALIZADA."]
+    final_json["servico_estacionamento"] = json["SERVI\u00c7O DE T\u00c1XI, PED\u00c1GIO E ESTACIONAMENTO"]
+    final_json["servicos_postais"] = json["SERVI\u00c7OS POSTAIS"]
+    final_json["telefonia"] = json["TELEFONIA"]
+
+    return final_json
+
+@api.route('/get_total_expenses/<id>')
+def get_total_expenses(id):
+    total = 0
+    for expenses in Expenses.objects:
+        if int(id) == int(expenses.deputy_id):
+            total = total + expenses.document_value
+   
+    return jsonify(total)

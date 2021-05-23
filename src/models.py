@@ -21,6 +21,12 @@ class Deputy(Document):
     facebook_username = StringField()
     twitter_id = StringField()
     website = StringField()
+    office_number = StringField()
+    office_name = StringField()
+    office_premise = StringField()
+    office_floor = StringField()
+    office_phone = StringField()
+    office_email = StringField()
 
     def to_json(self):
         return{
@@ -43,8 +49,15 @@ class Deputy(Document):
             'twitter_username':self.twitter_username,
             'facebook_username':self.facebook_username,
             'twitter_id':self.twitter_id,
-            'website':self.website
+            'website':self.website,
+            'office_number':self.office_number,
+            'office_name':self.office_name,
+            'office_premise':self.office_premise,
+            'office_floor':self.office_floor,
+            'office_phone':self.office_phone,
+            'office_email':self.office_email
         }
+
 
 class Parlamentary_vote(Document):
     unique_id = StringField(primary_key=True)
@@ -103,6 +116,8 @@ class Proposicao(Document):
     cod_tipo = IntField()
     numero = IntField()
     ano = IntField()
+    image_url = StringField()
+    image_id = StringField()
         
     def to_json(self):
         return{
@@ -126,7 +141,9 @@ class Proposicao(Document):
             'sigla_tipo' : self.sigla_tipo,
             'cod_tipo' : self.cod_tipo,
             'numero' : self.numero,
-            'ano' : self.ano
+            'ano' : self.ano,
+            'image_url' : self.image_url,
+            'image_id' : self.image_id
         }
 
 class Expenses(Document):
