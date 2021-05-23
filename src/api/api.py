@@ -627,11 +627,6 @@ def get_curiosities(id):
 
     return curiosity_json
 
-@api.route('/delete_propositions')
-def delete_all_propositions():
-    Proposicao.objects.all().delete()
-    return "Proposicoes apagadas com sucesso"
-
 @api.route('/filtered_propositions', methods=['POST'])
 def filtered_propositions():
     #Exemplo de Json de pesquisa: 
