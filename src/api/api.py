@@ -455,27 +455,45 @@ def delete_expenses():
 @api.route('/update_propositions')
 def update_propositions():
     # Request para api da câmara que retorna todos as proposições em tramitação nos uíltimos 30 dias por ordem de id 
-    r = requests.get("https://dadosabertos.camara.leg.br/api/v2/proposicoes?itens=1000&ordem=ASC&ordenarPor=id")
-    all_propositions_r = r.json()
+    # Pagina maxima 3460 para proposições desde 2010-01-01 e 5643 para 2000-01-01
+
+    # Faz um request para descobrir qual a última página em que há proposições
+    r0 = requests.get("https://dadosabertos.camara.leg.br/api/v2/proposicoes?dataInicio=2000-01-01&itens=100&ordem=desc&ordenarPor=id")
+    r_last_page = str(str(r0.json()["links"][3]["href"]).split("&")[3]).split("=")
+    r_last_page = int(r_last_page[1])
+
+    all_propositions_json = []
+    for index in range(1, r_last_page+1):
+        r = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes?pagina={index}&ordem=desc&ordenarPor=id")
+        if r.status_code != 200:
+            print(f"Status ruim {r.status_code}")
+            continue
+
+        if r.json()["dados"] is not None:
+            print(f" OK {index}")
+            all_propositions_json.append(r.json()["dados"])
+        else:
+            print("Json vazio")
+
 
     # Pega todos os id's dessas proposições vindas da requisição e verifica se já existe a Proposicao na classe do DB
-    all_propositions_json = []
+    propositions_list = []
     all_images = []
-    for proposition in all_propositions_r["dados"]:
+    for proposition in all_propositions_json[0]:
         temp_id = int(proposition["id"])
         if temp_id not in get_all_ids_DB(): 
             r2 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{temp_id}")
-            all_propositions_json.append(r2.json())
+            propositions_list.append(r2.json()["dados"])
 
     # Popula o banco de dados com as proposições que não existem nele
-    for proposition in all_propositions_json:
+    for proposition in propositions_list:
         # Requisição para pegar informações do autor da proposicao
-        r3 = requests.get(proposition["dados"]["uriAutores"])
+        r3 = requests.get(proposition["uriAutores"])
         author_info_json = r3.json()
-        
-        # Lista que recebe a uri dos autores e pega o tipo do autor e seu id respectivamente
-        r3_json_splited = str(r3.json()["dados"][0]["uri"]).split("/")
 
+        # Lista que recebe a uri dos autores e pega o tipo do autor e seu id respectivamente
+        r3_json_splited = str(author_info_json["dados"][0]["uri"]).split("/")
+        
         author_info_json_type = r3_json_splited[5]
         author_info_json_id = r3_json_splited[6]
 
@@ -500,7 +518,7 @@ def update_propositions():
             author_uf_r = r4.json()["dados"]["sigla"]
 
         # Faz uma requisição para buscar o tema da proposição, já esta vem em outra rota através de seu id
-        prop_id = proposition["dados"]["id"]
+        prop_id = proposition["id"]
         r5 = requests.get(f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{prop_id}/temas")
 
         if len(r5.json()["dados"]) <= 0:
@@ -509,8 +527,8 @@ def update_propositions():
             proposition_theme = r5.json()["dados"][0]["tema"]
 
         # Ajuste de formato de datas
-        apresentation_date = datetime.strptime(str(proposition["dados"]["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["dataApresentacao"]) > 5 else None
-        proposition_date = datetime.strptime(str(proposition["dados"]["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["dados"]["statusProposicao"]["dataHora"]) > 5 else None
+        apresentation_date = datetime.strptime(str(proposition["dataApresentacao"]), '%Y-%m-%dT%H:%M') if len(proposition["dataApresentacao"]) > 5 else None
+        proposition_date = datetime.strptime(str(proposition["statusProposicao"]["dataHora"]), '%Y-%m-%dT%H:%M') if len(proposition["statusProposicao"]["dataHora"]) > 5 else None
         
         # Requisição das imagens
         image_theme = proposition_theme
@@ -531,20 +549,20 @@ def update_propositions():
             image_dict = next(item for item in all_images if item["tema"] == image_theme) 
 
         new_proposition = Proposicao(
-            proposicao_id = proposition["dados"]["id"],
+            proposicao_id = proposition["id"],
             id_deputado_autor = author_info_json_id,
-            uri = proposition["dados"]["uri"],
-            descricao_tipo = proposition["dados"]["descricaoTipo"],
-            ementa = proposition["dados"]["ementa"],
-            ementa_detalhada = proposition["dados"]["ementaDetalhada"],
-            keywords = proposition["dados"]["keywords"],
+            uri = proposition["uri"],
+            descricao_tipo = proposition["descricaoTipo"],
+            ementa = proposition["ementa"],
+            ementa_detalhada = proposition["ementaDetalhada"],
+            keywords = proposition["keywords"],
             data_apresentacao = apresentation_date,
             urlAutor = author_url_r,
             tipoAutor = author_type_r,
             nome_autor = author_name_r,
             sigla_UF_autor = author_uf_r,
             tema_proposicao = proposition_theme,
-            sigla_orgao = proposition["dados"]["statusProposicao"]["siglaOrgao"], # Comeca aqui as informacoes do objeto de status
+            sigla_orgao = proposition["statusProposicao"]["siglaOrgao"], # Comeca aqui as informacoes do objeto de status
             data_proposicao = proposition_date, 
             descricao_situacao = proposition["dados"]["statusProposicao"]["descricaoSituacao"],
             despacho = proposition["dados"]["statusProposicao"]["despacho"],
@@ -578,7 +596,7 @@ def get_curiosities(id):
     curiosity_json = {
         "curiosity":""
     }
-    
+
     curiosity = None
     deputy = Deputy.objects(id=id).first()
 
@@ -592,17 +610,21 @@ def get_curiosities(id):
 
         elif is_deputy_allign(deputy.id):
             curiosity = is_deputy_allign(deputy.id)
-
+        
+        elif int(deputy.id) != 160674 and calculate_government_alignment(deputy):
+            curiosity = calculate_government_alignment(deputy)
+    
         elif deputy_term_of_office(deputy):
             curiosity = deputy_term_of_office(deputy)
         
         else:
             curiosity = deputy_expense_percent(deputy)
-
+             
     if not curiosity:
         return {}
 
     curiosity_json["curiosity"] = curiosity
+
     return curiosity_json
 
 @api.route('/delete_propositions')
@@ -671,7 +693,9 @@ def oldest_deputy_rank(deputy):
     if cont > 50:
         return None
 
-    return f"{cont}º/{len(Deputy.objects)}º do ranking de deputados com mais tempo em exercício com o tempo de: {cont} anos."
+    # Foi omitido a qtd de deputados aqui pq o projeto está tratando dos deputados com legislatura atual
+    return f"{cont}º parlamentar com mais tempo em exercício atualmente : {int(datetime.now().year - deputy.initial_legislature_year)} anos."
+    
 
 def deputy_related_expense(deputy):
     deputy_total_expense = calculate_deputy_total_expense(deputy)
@@ -745,6 +769,41 @@ def calculate_deputy_total_expense(deputy):
         deputy_total_expense = deputy_total_expense + item.document_value
 
     return deputy_total_expense
+
+def calculate_government_alignment(deputy):
+
+    all_votes_by_deputy = list(Parlamentary_vote.objects(id_deputy=deputy.id).all())
+    all_votes_by_gov_deputy = list(Parlamentary_vote.objects(id_deputy=160674).all())  # Votos do deputado líder do governo na Câmara (Hugo Motta)
+         
+    if not all_votes_by_deputy:
+        return None
+    
+    total_votes = 0
+    accordingly_vote = 0
+
+    # for a,b in zip(all_votes_by_deputy, all_votes_by_gov_deputy):
+    #     total_votes = total_votes + 1
+    #     if a.vote == b.vote:
+    #         accordingly_vote = accordingly_vote + 1
+
+    for vote_by_deputy in all_votes_by_deputy:
+        for vote_gov in all_votes_by_gov_deputy:
+            if vote_by_deputy.id_voting == vote_gov.id_voting: 
+                total_votes += 1
+                if vote_by_deputy.vote == vote_gov.vote:
+                    accordingly_vote += 1
+                
+                break
+
+
+    # print(total_votes)
+    # print(accordingly_vote)
+
+    percent = (accordingly_vote / total_votes) * 100.0
+    if total_votes > 10 and percent > 75 or percent < 35:
+        return  f"O deputado é {'{0:.3g}'.format(percent)}% alinhado com o governo."
+
+    return None
 
 @api.route('/expenses_by_type/<id>')
 def expenses_by_type(id):
